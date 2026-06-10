@@ -270,7 +270,7 @@ const app = {
 
   renderHome(container) {
     const stats = this.computeProvinceStats();
-    const topCities = this.computeCityStats().sort((a,b)=>b.schoolCount-a.schoolCount).slice(0,3);
+    const topCities = this.computeCityStats().sort((a,b)=>b.totalAmount-a.totalAmount).slice(0,3);
     container.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         ${this.statCard('合作学校总数', stats.schoolCount, 'ri-school-line', 'border-blue-500', 'bg-blue-50 text-blue-600')}
