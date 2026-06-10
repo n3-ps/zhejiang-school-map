@@ -128,7 +128,14 @@ const STAKEHOLDER_TYPES = ['决策人','对接人','影响人','技术负责人'
 
 const store = {
   key: 'zhejiang_private_school_battle_map',
-  init() { if (!localStorage.getItem(this.key)) localStorage.setItem(this.key, JSON.stringify(this.getDefaultData())); },
+  init() {
+    const ver = localStorage.getItem(this.key + '_ver');
+    if (!localStorage.getItem(this.key) || ver !== '2') {
+      localStorage.setItem(this.key, JSON.stringify(this.getDefaultData()));
+      localStorage.setItem(this.key + '_ver', '2');
+      localStorage.removeItem('zhejiang_csv_imported_v10');
+    }
+  },
   get() { try { return JSON.parse(localStorage.getItem(this.key)) || this.getDefaultData(); } catch(e){ return this.getDefaultData(); } },
   set(data) { localStorage.setItem(this.key, JSON.stringify(data)); },
   getDefaultData() { return { schools: [], deliveries: [], opportunities: [], persons: [], stakeholders: [], logs: [] }; }
