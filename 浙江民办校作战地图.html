@@ -384,7 +384,7 @@ const app = {
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm table">
-            <thead><tr><th style="width:30px"><input type="checkbox" id="selAll_school" onchange="app.toggleAll('school')"></th><th>学校名称</th><th>办学类型</th><th>负责人</th><th>联系电话</th><th>签约金额</th><th>交付</th><th>商机</th><th>操作</th></tr></thead>
+            <thead><tr><th>学校名称</th><th>办学类型</th><th>负责人</th><th>联系电话</th><th>签约金额</th><th>交付</th><th>商机</th><th>操作</th></tr></thead>
             <tbody>
               ${schools.map(s=>{
                 const sc = deliveries.filter(d=>d.schoolId===s.id).length;
@@ -432,17 +432,15 @@ const app = {
           <div class="flex-1"></div>
           <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openSchoolModal()">+ 新增学校</button>
           <button class="btn bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-sm" onclick="app.exportCSV('schools')">导出</button>
-          <button class="btn bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.batchDeleteData('school')">批量删除</button>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm table">
-            <thead><tr><th style="width:30px"><input type="checkbox" id="selAll_school" onchange="app.toggleAll('school')"></th><th>学校名称</th><th>地市/区县</th><th>办学类型</th><th>负责人</th><th>联系电话</th><th>签约金额</th><th>交付数</th><th>商机数</th><th>操作</th></tr></thead>
+            <thead><tr><th>学校名称</th><th>地市/区县</th><th>办学类型</th><th>负责人</th><th>联系电话</th><th>签约金额</th><th>交付数</th><th>商机数</th><th>操作</th></tr></thead>
             <tbody>
               ${this.getFilteredSchools().map(s=>{
                 const dc = this.data.deliveries.filter(d=>d.schoolId===s.id).length;
                 const oc = this.data.opportunities.filter(o=>o.schoolId===s.id).length;
                 return `<tr>
-                  <td><input type="checkbox" name="sel_school" value="${s.id}"></td>
                   <td class="font-medium">${s.name}</td>
                   <td>${s.city} · ${s.district}</td>
                   <td>${s.schoolType.join('/')}</td>
@@ -484,15 +482,13 @@ const app = {
           <input id="filterDKw" type="text" placeholder="搜索项目/学校" class="form-input w-56 text-sm" oninput="app.renderDeliveryList(document.getElementById('pageContent'))">
           <div class="flex-1"></div>
           <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openDeliveryModal()">+ 新增交付</button>
-          <button class="btn bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.batchDeleteData('delivery')">批量删除</button>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm table"><thead><tr><th style="width:30px"><input type="checkbox" id="selAll_delivery" onchange="app.toggleAll('delivery')"></th><th>项目名称</th><th>学校</th><th>产品类型</th><th>数量</th><th>进度</th><th>负责人</th><th>计划交付</th><th>操作</th></tr></thead><tbody>
+          <table class="w-full text-sm table"><thead><tr><th>项目名称</th><th>学校</th><th>产品类型</th><th>数量</th><th>进度</th><th>负责人</th><th>计划交付</th><th>操作</th></tr></thead><tbody>
             ${this.getFilteredDeliveries().map(d=>{
               const school = this.data.schools.find(s=>s.id===d.schoolId);
               const totalQty = Object.values(d.quantities||{}).reduce((a,b)=>a+b,0);
               return `<tr>
-                <td><input type="checkbox" name="sel_delivery" value="${d.id}"></td>
                 <td class="font-medium">${d.name}</td>
                 <td>${school?school.name:'-'}</td>
                 <td>${d.productTypes.join('/')}</td>
@@ -535,14 +531,12 @@ const app = {
           <input id="filterOKw" type="text" placeholder="搜索商机/学校" class="form-input w-56 text-sm" oninput="app.renderOpportunityList(document.getElementById('pageContent'))">
           <div class="flex-1"></div>
           <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openOpportunityModal()">+ 新增商机</button>
-          <button class="btn bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.batchDeleteData('opp')">批量删除</button>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm table"><thead><tr><th style="width:30px"><input type="checkbox" id="selAll_opp" onchange="app.toggleAll('opp')"></th><th>商机名称</th><th>学校</th><th>阶段</th><th>意向产品</th><th>预计金额</th><th>预计签约</th><th>销售负责人</th><th>操作</th></tr></thead><tbody>
+          <table class="w-full text-sm table"><thead><tr><th>商机名称</th><th>学校</th><th>阶段</th><th>意向产品</th><th>预计金额</th><th>预计签约</th><th>销售负责人</th><th>操作</th></tr></thead><tbody>
             ${this.getFilteredOpportunities().map(o=>{
               const school = this.data.schools.find(s=>s.id===o.schoolId);
               return `<tr>
-                <td><input type="checkbox" name="sel_opp" value="${o.id}"></td>
                 <td class="font-medium">${o.name}</td>
                 <td>${school?school.name:'-'}</td>
                 <td>${this.stageBadge(o.stage)}</td>
@@ -580,12 +574,10 @@ const app = {
   renderPersonList(container){
     container.innerHTML = `
       <div class="card p-4">
-        <div class="flex items-center justify-between mb-4"><h3 class="font-bold">人员责任管理</h3><button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openPersonModal()">+ 新增人员</button>
-          <button class="btn bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.batchDeleteData('person')">批量删除</button></div>
+        <div class="flex items-center justify-between mb-4"><h3 class="font-bold">人员责任管理</h3><button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openPersonModal()">+ 新增人员</button></div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm table"><thead><tr><th style="width:30px"><input type="checkbox" id="selAll_person" onchange="app.toggleAll('person')"></th><th>姓名</th><th>角色</th><th>负责地市</th><th>负责学校</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody>
+          <table class="w-full text-sm table"><thead><tr><th>姓名</th><th>角色</th><th>负责地市</th><th>负责学校</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody>
             ${this.data.persons.map(p=>`<tr>
-              <td><input type="checkbox" name="sel_person" value="${p.id}"></td>
               <td class="font-medium">${p.name}</td>
               <td><span class="tag bg-blue-100 text-blue-700">${p.role}</span></td>
               <td>${p.cities.join('/')}</td>
@@ -1006,7 +998,7 @@ const app = {
   hideContextMenu(){ document.getElementById('contextMenu').classList.add('hidden'); },
 
   importInTransitData(){
-    const key = 'zhejiang_csv_imported_v5';
+    const key = 'zhejiang_csv_imported_v3';
     if (localStorage.getItem(key)) return;
     const schools = [
       {id:'CSV_S1',name:'荣怀教育集团',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:11.44,remark:'从小GB在途项目明细导入'},
@@ -1185,37 +1177,6 @@ const app = {
     if (oppPersonCount > 0) { personCount += oppPersonCount; }
     if (count > 0 || personCount > 0) { store.set(this.data); localStorage.setItem(key, '1'); }
   },
-
-  toggleAll(type){
-    const checked = document.getElementById('selAll_'+type).checked;
-    document.querySelectorAll('input[name="sel_"+type]').forEach(cb => cb.checked = checked);
-  },
-
-  batchDeleteData(type){
-    const ids = [];
-    document.querySelectorAll('input[name="sel_"+type+"]:checked").forEach(cb => ids.push(cb.value));
-    if (ids.length === 0) { this.toast('请先勾选要删除的记录','warning'); return; }
-    const labels = {school:'学校',delivery:'交付项目',opp:'商机',person:'人员'};
-    if (!confirm('确定删除选中的 '+ids.length+' 条'+labels[type]+'？')) return;
-    if (type === 'school') {
-      ids.forEach(id => {
-        this.data.schools = this.data.schools.filter(s => s.id !== id);
-        this.data.deliveries = this.data.deliveries.filter(d => d.schoolId !== id);
-        this.data.opportunities = this.data.opportunities.filter(o => o.schoolId !== id);
-        this.data.stakeholders = this.data.stakeholders.filter(st => st.schoolId !== id);
-      });
-    } else if (type === 'delivery') {
-      this.data.deliveries = this.data.deliveries.filter(d => !ids.includes(d.id));
-    } else if (type === 'opp') {
-      this.data.opportunities = this.data.opportunities.filter(o => !ids.includes(o.id));
-    } else if (type === 'person') {
-      this.data.persons = this.data.persons.filter(p => !ids.includes(p.id));
-    }
-    store.set(this.data);
-    this.toast('已删除 '+ids.length+' 条记录','success');
-    this.refreshPage();
-  },
-
 
   toast(message, type='info'){
     const colors = {info:'bg-blue-600',success:'bg-emerald-600',error:'bg-rose-600',warning:'bg-amber-500'};
