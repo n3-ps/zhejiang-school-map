@@ -998,7 +998,7 @@ const app = {
   hideContextMenu(){ document.getElementById('contextMenu').classList.add('hidden'); },
 
   importInTransitData(){
-    const key = 'zhejiang_csv_imported_v9';
+    const key = 'zhejiang_csv_imported_v10';
     if (localStorage.getItem(key)) return;
     const schools = [
       {id:'CSV_S1',name:'荣怀教育集团',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:11.44,remark:'从小GB在途项目明细导入'},
@@ -1179,7 +1179,8 @@ const app = {
       }
     });
     if (oppPersonCount > 0) { personCount += oppPersonCount; }
-    if (count > 0 || personCount > 0 || deliveryCount > 0 || oppCount > 0) { store.set(this.data); localStorage.setItem(key, '1'); }
+    // 无条件保存，确保所有导入数据写入 localStorage
+    store.set(this.data); localStorage.setItem(key, '1');
   },
 
   toast(message, type='info'){
