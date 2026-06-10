@@ -128,14 +128,7 @@ const STAKEHOLDER_TYPES = ['决策人','对接人','影响人','技术负责人'
 
 const store = {
   key: 'zhejiang_private_school_battle_map',
-  init() {
-    const ver = localStorage.getItem(this.key + '_ver');
-    if (!localStorage.getItem(this.key) || ver !== '2') {
-      localStorage.setItem(this.key, JSON.stringify(this.getDefaultData()));
-      localStorage.setItem(this.key + '_ver', '2');
-      localStorage.removeItem('zhejiang_csv_imported_v10');
-    }
-  },
+  init() { if (!localStorage.getItem(this.key)) localStorage.setItem(this.key, JSON.stringify(this.getDefaultData())); },
   get() { try { return JSON.parse(localStorage.getItem(this.key)) || this.getDefaultData(); } catch(e){ return this.getDefaultData(); } },
   set(data) { localStorage.setItem(this.key, JSON.stringify(data)); },
   getDefaultData() { return { schools: [], deliveries: [], opportunities: [], persons: [], stakeholders: [], logs: [] }; }
@@ -221,7 +214,8 @@ const app = {
   init() {
     store.init(); this.data = store.get();
     if (this.data.schools.length === 0) {
-      store.set(this.data);
+      this.data = generateMockData(); store.set(this.data);
+      this.toast('已加载示例数据，你可以编辑或导入真实数据','info');
     }
     this.importInTransitData();
     this.bindNav(); this.bindSearch(); this.updateStorageInfo(); this.go('home');
