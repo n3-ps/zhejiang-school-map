@@ -346,7 +346,7 @@ const app = {
     const el = document.getElementById('productChart'); if(!el) return;
     const counts = {}; this.data.deliveries.forEach(d=>{ d.productTypes.forEach(t=>{ counts[t]=(counts[t]||0)+Object.values(d.quantities||{}).reduce((a,b)=>a+b,0); }); });
     const chart = echarts.init(el); this.charts.product = chart;
-     chart.setOption({ tooltip: { trigger: 'item' }, legend: { bottom: 0, type: 'scroll' }, series: [{ type: 'pie', radius: '60%', data: Object.entries(counts).filter(([k])=>k!=='其他').map(([k,v])=>({name:k,value:v})).sort((a,b)=>b.value-a.value) }] });
+     chart.setOption({ tooltip: { trigger: 'item' }, legend: { bottom: 0, type: 'scroll' }, series: [{ type: 'pie', radius: '60%', data: Object.entries(counts).filter(([k])=>k!=='其他'&&k!=='小G/B-综合解决方案'&&k!=='智慧体育').map(([k,v])=>({name:k,value:v})).sort((a,b)=>b.value-a.value) }] });
   },
 
   renderStageChart(){
@@ -417,7 +417,7 @@ const app = {
       pc.setOption({ xAxis:{type:'category',data:DELIVERY_PROGRESS,axisLabel:{fontSize:10}}, yAxis:{type:'value'}, series:[{type:'bar',data:DELIVERY_PROGRESS.map(s=>progCounts[s]||0),itemStyle:{color:'#10b981',borderRadius:[4,4,0,0]}}] });
       const prc = echarts.init(document.getElementById('cityProductChart'));
       const prodCounts = {}; deliveries.forEach(d=>d.productTypes.forEach(t=>prodCounts[t]=(prodCounts[t]||0)+1));
-      prc.setOption({ series:[{type:'pie',radius:'60%',data:Object.entries(prodCounts).map(([k,v])=>({name:k,value:v}))}] });
+      prc.setOption({ series:[{type:'pie',radius:'60%',data:Object.entries(prodCounts).filter(([k])=>k!=='小G/B-综合解决方案'&&k!=='智慧体育').map(([k,v])=>({name:k,value:v}))}] });
       window.addEventListener('resize',()=>{sc.resize();pc.resize();prc.resize();});
     },0);
   },
@@ -595,7 +595,7 @@ const app = {
     `;
   },
 
-  personName(id){ const p=this.data.persons.find(x=>x.id===id); return p?p.name:'未分配'; },
+  personName(id){ const p=this.data.persons.find(x=>x.id===id); return p?p.name:(id||'未分配'); },
 
   renderDataPage(container){
     container.innerHTML = `
@@ -643,8 +643,8 @@ const app = {
 
   dataLabel(k){ return {schools:'学校档案',deliveries:'交付项目',opportunities:'在途商机',persons:'人员责任',stakeholders:'核心干系人'}[k]; },
 
-  computeProvinceStats(){ return { schoolCount: this.data.schools.length, deliveryCount: this.data.deliveries.length, opportunityCount: this.data.opportunities.length, totalAmount: this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0) }; },
-  computeCityStats(){ return CITIES.map(city=>{ const schools=this.data.schools.filter(s=>s.city===city); const deliveries=this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId)); const opportunities=this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId)); return { name:city, schoolCount:schools.length, deliveryCount:deliveries.length, opportunityCount:opportunities.length, totalAmount:schools.reduce((a,s)=>a+(+s.totalAmount||0),0) }; }); },
+  computeProvinceStats(){ return { schoolCount: this.data.schools.length, deliveryCount: this.data.deliveries.length, opportunityCount: this.data.opportunities.length, totalAmount: +(this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4) }; },
+  computeCityStats(){ return CITIES.map(city=>{ const schools=this.data.schools.filter(s=>s.city===city); const deliveries=this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId)); const opportunities=this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId)); return { name:city, schoolCount:schools.length, deliveryCount:deliveries.length, opportunityCount:opportunities.length, totalAmount:+(schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4) }; }); },
 
   openModal(html){ const overlay=document.getElementById('modalOverlay'); const content=document.getElementById('modalContent'); content.innerHTML=html; overlay.classList.remove('hidden'); this.modalStack.push(content); },
   closeModal(){ document.getElementById('modalOverlay').classList.add('hidden'); document.getElementById('modalContent').innerHTML=''; this.modalStack=[]; },
@@ -999,7 +999,7 @@ const app = {
 
   importInTransitData(){
     const key = 'zhejiang_csv_imported_v10';
-    if (localStorage.getItem(key)) return;
+    const isNewImport = !localStorage.getItem(key);
     const schools = [
       {id:'CSV_S1',name:'荣怀教育集团',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:11.44,remark:'从小GB在途项目明细导入'},
       {id:'CSV_S2',name:'荣怀集团仙桃校区',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:23.5,remark:'从小GB在途项目明细导入'},
@@ -1014,6 +1014,7 @@ const app = {
       {id:'CSV_D4_2',schoolId:'CSV_S4',name:'2026浙江省绍兴市诸暨市荣怀贺州校区批阅机 采购合同（民办校）',productTypes:['批阅机'],quantities:{'批阅机':1},deployLocation:'待定',progress:'未启动',managerId:'',planDate:'2026/5/20',actualDate:'',remark:'从小GB在途项目明细导入'}
     ];
     let count = 0;
+    if (isNewImport) {
     schools.forEach(s => {
       if (!this.data.schools.find(x => x.name === s.name)) {
         this.data.schools.push(s); count++;
@@ -1021,6 +1022,7 @@ const app = {
     });
     let deliveryCount = 0;
     deliveries.forEach(d => { if (!this.data.deliveries.find(x => x.id === d.id)) { this.data.deliveries.push(d); deliveryCount++; } });
+    }
     const persons = [
       {id:'CSV_PM1',name:'付后旺',role:'驻点销售',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
       {id:'CSV_R01',name:'吴震宇',role:'区域负责人',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
@@ -1050,12 +1052,14 @@ const app = {
       {id:'CSV_D21',name:'李广勇',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
       {id:'CSV_D22',name:'余志威',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'}
     ];
+    if (isNewImport) {
     let personCount = 0;
     persons.forEach(p => {
       if (!this.data.persons.find(x => x.name === p.name)) {
         this.data.persons.push(p); personCount++;
       }
     });
+    }
 
     // 从在途商机导入的学校
     const oppSchools = [
@@ -1101,54 +1105,54 @@ const app = {
       {id:'OPP_S40',name:'泰顺县明德实验学校',city:'温州市',district:'泰顺县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
     ];
     const oppOpps = [
-      {id:'OPP_O20260501650',schoolId:'OPP_S1',name:'浙江育英教育集团智慧教育项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:0.01,signDate:'2026-07-24',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
-      {id:'OPP_O20260501224',schoolId:'OPP_S2',name:'2026年荣怀贺州批阅机采购',stage:'招投标',products:["数智作业", "批阅机"],amount:3.5,signDate:'2026-05-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260501223',schoolId:'OPP_S2',name:'2026年荣怀贺州智慧操场采购项目',stage:'招投标',products:["智慧操场"],amount:38.8,signDate:'2026-05-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260500514',schoolId:'OPP_S3',name:'2026年义乌群星外国语学校智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:25.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
-      {id:'OPP_O20260500513',schoolId:'OPP_S4',name:'2026年义乌公学智慧黑板+批阅机项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:50.0,signDate:'2026-10-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
-      {id:'OPP_O20260400085',schoolId:'OPP_S5',name:'永兴中学重批机试点项目',stage:'初步接触',products:["数智作业", "批阅机"],amount:4.8,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
-      {id:'OPP_O20260302945',schoolId:'OPP_S6',name:'26年粮仓海亮集采框架项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:2000.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260302942',schoolId:'OPP_S7',name:'26年粮仓温州瑞安新纪元人工智能建设一期',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260302939',schoolId:'OPP_S8',name:'26年粮仓温州慧中初高中智慧作业项目',stage:'初步接触',products:["数智作业"],amount:300.0,signDate:'2026-07-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260302930',schoolId:'OPP_S9',name:'德清华盛达校本作业项目',stage:'初步接触',products:["数智作业"],amount:50.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
-      {id:'OPP_O20260302757',schoolId:'OPP_S10',name:'秀水高级中学智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:45.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
-      {id:'OPP_O20260302615',schoolId:'OPP_S11',name:'上师大附属嘉善实验学校作业',stage:'初步接触',products:["数智作业"],amount:150.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
-      {id:'OPP_O20260302611',schoolId:'OPP_S12',name:'三门县瑞杰高级职业中学高中部数智作业项目',stage:'初步接触',products:["数智作业"],amount:70.0,signDate:'2026-07-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20260302023',schoolId:'OPP_S13',name:'2026年湖州求是集团智慧课堂采购项目',stage:'初步接触',products:["智慧课堂"],amount:500.0,signDate:'2026-08-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
-      {id:'OPP_O20260301710',schoolId:'OPP_S14',name:'宁波鄞州新蓝青学校软件平台项目',stage:'招投标',products:["智慧课堂", "智慧窗"],amount:345.0,signDate:'2026-08-31',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20260301308',schoolId:'OPP_S15',name:'宁波至诚学校智慧校园项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:50.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20260301270',schoolId:'OPP_S16',name:'宁波光华学校校园综合项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:150.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20260301250',schoolId:'OPP_S17',name:'遂昌育才初中部数智作业项目',stage:'初步接触',products:["数智作业"],amount:100.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260200916',schoolId:'OPP_S18',name:'台州康桥学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:30.0,signDate:'2026-08-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20260200915',schoolId:'OPP_S19',name:'台州市双语高级中学数智作业、智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:50.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20260200914',schoolId:'OPP_S20',name:'温岭市存志外国语学校数智作业、智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:50.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20260102684',schoolId:'OPP_S14',name:'宁波鄞州新蓝青学校新建校智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:80.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20260102484',schoolId:'OPP_S21',name:'平湖杭州湾学校智慧课堂项目',stage:'初步接触',products:["智慧课堂"],amount:15.0,signDate:'2026-06-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
-      {id:'OPP_O20260102424',schoolId:'OPP_S22',name:'台州书生中学数智作业、智慧黑板、培优项目',stage:'初步接触',products:["数智作业"],amount:200.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20260102423',schoolId:'OPP_S23',name:'杭州鼎文学校科创中心项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:160.0,signDate:'2026-05-29',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
-      {id:'OPP_O20260102421',schoolId:'OPP_S24',name:'育才科技高中新建校项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:120.0,signDate:'2026-09-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
-      {id:'OPP_O20260102419',schoolId:'OPP_S10',name:'秀水高级中学校本作业',stage:'初步接触',products:["数智作业"],amount:80.0,signDate:'2026-09-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
-      {id:'OPP_O20260102417',schoolId:'OPP_S25',name:'嘉善新世纪学校作业批阅机',stage:'初步接触',products:["智慧课堂"],amount:7.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
-      {id:'OPP_O20260102416',schoolId:'OPP_S26',name:'高桥金帆一体机项目',stage:'初步接触',products:["智慧窗"],amount:30.0,signDate:'2026-09-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
-      {id:'OPP_O20260102414',schoolId:'OPP_S27',name:'东瓯中学智慧体育采购项目',stage:'初步接触',products:["智慧操场"],amount:28.0,signDate:'2026-08-31',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260102410',schoolId:'OPP_S28',name:'温州育英实验学校AI自习室项目',stage:'初步接触',products:["智慧课堂"],amount:20.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260102296',schoolId:'OPP_S29',name:'宁波神舟学校数智作业项目',stage:'初步接触',products:["数智作业", "批阅机"],amount:80.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20260100379',schoolId:'OPP_S2',name:'2026年粮仓荣怀信息化项目二期',stage:'招投标',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260100377',schoolId:'OPP_S30',name:'2026年粮仓新昌南瑞实验一体机采购项目',stage:'初步接触',products:["智慧窗"],amount:40.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260100376',schoolId:'OPP_S31',name:'2026年粮仓暨北小学未来学校建设一期项目',stage:'方案输出',products:["智慧课堂", "智慧窗"],amount:450.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260100375',schoolId:'OPP_S6',name:'2026年粮仓海亮教育园个册合作项目',stage:'初步接触',products:["个册"],amount:400.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20260100361',schoolId:'OPP_S32',name:'金华荣光学校智慧操场项目',stage:'初步接触',products:["数智作业"],amount:28.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
-      {id:'OPP_O20251202862',schoolId:'OPP_S14',name:'宁波鄞州新蓝青新建校项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-29',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20251202860',schoolId:'OPP_S33',name:'余姚市高风学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:50.0,signDate:'2026-07-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
-      {id:'OPP_O20251102181',schoolId:'OPP_S34',name:'台州市路桥区东方理想学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:100.0,signDate:'2026-07-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20251101593',schoolId:'OPP_S35',name:'温岭之江高级中学数智作业、智慧黑板项目',stage:'初步接触',products:["数智作业"],amount:200.0,signDate:'2026-08-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
-      {id:'OPP_O20251000928',schoolId:'OPP_S36',name:'永嘉翔宇中学2个班智慧课堂投放（西湖论坛）',stage:'初步接触',products:["智慧课堂"],amount:50.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：贺家乐'},
-      {id:'OPP_O20251000028',schoolId:'OPP_S3',name:'2026义乌市群星外国语学校高一年级智慧课堂项目',stage:'需求对接',products:["智慧课堂"],amount:24.0,signDate:'2026-08-31',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
-      {id:'OPP_O20250900094',schoolId:'OPP_S37',name:'平阳县建兰中学智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:25.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：贺家乐'},
-      {id:'OPP_O20250800085',schoolId:'OPP_S31',name:'2025年粮仓暨北小学五育评价系统建设项目',stage:'方案输出',products:["智慧课堂"],amount:10.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20250701527',schoolId:'OPP_S38',name:'瑾瑜教育集团Ai自习室建设',stage:'初步接触',products:["智慧课堂"],amount:20.0,signDate:'2026-10-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20250302088',schoolId:'OPP_S39',name:'乐清外国语一体机采购',stage:'初步接触',products:["智慧窗"],amount:30.0,signDate:'2026-06-11',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
-      {id:'OPP_O20250301534',schoolId:'OPP_S40',name:'泰顺明德实验学校轻批机一期采购',stage:'方案输出',products:["智慧课堂"],amount:12.0,signDate:'2026-05-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260501650',schoolId:'OPP_S1',name:'浙江育英教育集团智慧教育项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:0.01,signDate:'2026-07-24',salesId:'储成康',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260501224',schoolId:'OPP_S2',name:'2026年荣怀贺州批阅机采购',stage:'招投标',products:["数智作业", "批阅机"],amount:3.5,signDate:'2026-05-30',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260501223',schoolId:'OPP_S2',name:'2026年荣怀贺州智慧操场采购项目',stage:'招投标',products:["智慧操场"],amount:38.8,signDate:'2026-05-30',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260500514',schoolId:'OPP_S3',name:'2026年义乌群星外国语学校智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:25.0,signDate:'2026-09-30',salesId:'钟翔',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20260500513',schoolId:'OPP_S4',name:'2026年义乌公学智慧黑板+批阅机项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:50.0,signDate:'2026-10-30',salesId:'钟翔',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20260400085',schoolId:'OPP_S5',name:'永兴中学重批机试点项目',stage:'初步接触',products:["数智作业", "批阅机"],amount:4.8,signDate:'2026-09-01',salesId:'储成康',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260302945',schoolId:'OPP_S6',name:'26年粮仓海亮集采框架项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:2000.0,signDate:'2026-09-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260302942',schoolId:'OPP_S7',name:'26年粮仓温州瑞安新纪元人工智能建设一期',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260302939',schoolId:'OPP_S8',name:'26年粮仓温州慧中初高中智慧作业项目',stage:'初步接触',products:["数智作业"],amount:300.0,signDate:'2026-07-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260302930',schoolId:'OPP_S9',name:'德清华盛达校本作业项目',stage:'初步接触',products:["数智作业"],amount:50.0,signDate:'2026-09-30',salesId:'潘曙光',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260302757',schoolId:'OPP_S10',name:'秀水高级中学智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:45.0,signDate:'2026-09-30',salesId:'潘曙光',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260302615',schoolId:'OPP_S11',name:'上师大附属嘉善实验学校作业',stage:'初步接触',products:["数智作业"],amount:150.0,signDate:'2026-09-30',salesId:'潘曙光',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260302611',schoolId:'OPP_S12',name:'三门县瑞杰高级职业中学高中部数智作业项目',stage:'初步接触',products:["数智作业"],amount:70.0,signDate:'2026-07-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260302023',schoolId:'OPP_S13',name:'2026年湖州求是集团智慧课堂采购项目',stage:'初步接触',products:["智慧课堂"],amount:500.0,signDate:'2026-08-30',salesId:'钟翔',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20260301710',schoolId:'OPP_S14',name:'宁波鄞州新蓝青学校软件平台项目',stage:'招投标',products:["智慧课堂", "智慧窗"],amount:345.0,signDate:'2026-08-31',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260301308',schoolId:'OPP_S15',name:'宁波至诚学校智慧校园项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:50.0,signDate:'2026-09-01',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260301270',schoolId:'OPP_S16',name:'宁波光华学校校园综合项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:150.0,signDate:'2026-08-01',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260301250',schoolId:'OPP_S17',name:'遂昌育才初中部数智作业项目',stage:'初步接触',products:["数智作业"],amount:100.0,signDate:'2026-06-30',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260200916',schoolId:'OPP_S18',name:'台州康桥学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:30.0,signDate:'2026-08-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260200915',schoolId:'OPP_S19',name:'台州市双语高级中学数智作业、智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:50.0,signDate:'2026-09-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260200914',schoolId:'OPP_S20',name:'温岭市存志外国语学校数智作业、智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:50.0,signDate:'2026-09-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260102684',schoolId:'OPP_S14',name:'宁波鄞州新蓝青学校新建校智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:80.0,signDate:'2026-09-30',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260102484',schoolId:'OPP_S21',name:'平湖杭州湾学校智慧课堂项目',stage:'初步接触',products:["智慧课堂"],amount:15.0,signDate:'2026-06-26',salesId:'潘曙光',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260102424',schoolId:'OPP_S22',name:'台州书生中学数智作业、智慧黑板、培优项目',stage:'初步接触',products:["数智作业"],amount:200.0,signDate:'2026-09-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260102423',schoolId:'OPP_S23',name:'杭州鼎文学校科创中心项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:160.0,signDate:'2026-05-29',salesId:'储成康',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102421',schoolId:'OPP_S24',name:'育才科技高中新建校项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:120.0,signDate:'2026-09-26',salesId:'储成康',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102419',schoolId:'OPP_S10',name:'秀水高级中学校本作业',stage:'初步接触',products:["数智作业"],amount:80.0,signDate:'2026-09-26',salesId:'潘曙光',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260102417',schoolId:'OPP_S25',name:'嘉善新世纪学校作业批阅机',stage:'初步接触',products:["智慧课堂"],amount:7.0,signDate:'2026-06-30',salesId:'储成康',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102416',schoolId:'OPP_S26',name:'高桥金帆一体机项目',stage:'初步接触',products:["智慧窗"],amount:30.0,signDate:'2026-09-26',salesId:'储成康',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102414',schoolId:'OPP_S27',name:'东瓯中学智慧体育采购项目',stage:'初步接触',products:["智慧操场"],amount:28.0,signDate:'2026-08-31',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260102410',schoolId:'OPP_S28',name:'温州育英实验学校AI自习室项目',stage:'初步接触',products:["智慧课堂"],amount:20.0,signDate:'2026-06-30',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260102296',schoolId:'OPP_S29',name:'宁波神舟学校数智作业项目',stage:'初步接触',products:["数智作业", "批阅机"],amount:80.0,signDate:'2026-08-01',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260100379',schoolId:'OPP_S2',name:'2026年粮仓荣怀信息化项目二期',stage:'招投标',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100377',schoolId:'OPP_S30',name:'2026年粮仓新昌南瑞实验一体机采购项目',stage:'初步接触',products:["智慧窗"],amount:40.0,signDate:'2026-09-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100376',schoolId:'OPP_S31',name:'2026年粮仓暨北小学未来学校建设一期项目',stage:'方案输出',products:["智慧课堂", "智慧窗"],amount:450.0,signDate:'2026-08-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100375',schoolId:'OPP_S6',name:'2026年粮仓海亮教育园个册合作项目',stage:'初步接触',products:["个册"],amount:400.0,signDate:'2026-09-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100361',schoolId:'OPP_S32',name:'金华荣光学校智慧操场项目',stage:'初步接触',products:["数智作业"],amount:28.0,signDate:'2026-06-30',salesId:'钟翔',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20251202862',schoolId:'OPP_S14',name:'宁波鄞州新蓝青新建校项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-29',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20251202860',schoolId:'OPP_S33',name:'余姚市高风学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:50.0,signDate:'2026-07-01',salesId:'许梁',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20251102181',schoolId:'OPP_S34',name:'台州市路桥区东方理想学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:100.0,signDate:'2026-07-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20251101593',schoolId:'OPP_S35',name:'温岭之江高级中学数智作业、智慧黑板项目',stage:'初步接触',products:["数智作业"],amount:200.0,signDate:'2026-08-30',salesId:'周强',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20251000928',schoolId:'OPP_S36',name:'永嘉翔宇中学2个班智慧课堂投放（西湖论坛）',stage:'初步接触',products:["智慧课堂"],amount:50.0,signDate:'2026-06-30',salesId:'贺家乐',milestones:'',risks:'',remark:'从在途商机导入，负责人：贺家乐'},
+      {id:'OPP_O20251000028',schoolId:'OPP_S3',name:'2026义乌市群星外国语学校高一年级智慧课堂项目',stage:'需求对接',products:["智慧课堂"],amount:24.0,signDate:'2026-08-31',salesId:'钟翔',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20250900094',schoolId:'OPP_S37',name:'平阳县建兰中学智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:25.0,signDate:'2026-06-30',salesId:'贺家乐',milestones:'',risks:'',remark:'从在途商机导入，负责人：贺家乐'},
+      {id:'OPP_O20250800085',schoolId:'OPP_S31',name:'2025年粮仓暨北小学五育评价系统建设项目',stage:'方案输出',products:["智慧课堂"],amount:10.0,signDate:'2026-08-01',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20250701527',schoolId:'OPP_S38',name:'瑾瑜教育集团Ai自习室建设',stage:'初步接触',products:["智慧课堂"],amount:20.0,signDate:'2026-10-30',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20250302088',schoolId:'OPP_S39',name:'乐清外国语一体机采购',stage:'初步接触',products:["智慧窗"],amount:30.0,signDate:'2026-06-11',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20250301534',schoolId:'OPP_S40',name:'泰顺明德实验学校轻批机一期采购',stage:'方案输出',products:["智慧课堂"],amount:12.0,signDate:'2026-05-30',salesId:'张森',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
     ];
     const oppPersons = [
       {id:'OPP_P1',name:'储成康',role:'驻点销售',cities:["嘉兴市", "杭州市"],schoolIds:[],phone:'',status:'在职'},
@@ -1161,26 +1165,35 @@ const app = {
     ];
     let oppPersonCount = 0;
     oppSchools.forEach(s => {
-      if (!this.data.schools.find(x => x.name === s.name)) {
+      if (!this.data.schools.find(x => x.id === s.id)) {
         this.data.schools.push(s); count++;
       }
     });
+    if (isNewImport) {
     oppPersons.forEach(p => {
       if (!this.data.persons.find(x => x.name === p.name)) {
         this.data.persons.push(p); oppPersonCount++;
       }
     });
+    }
     let oppCount = 0;
     // 清理模拟数据生成的商机（ID为 O 开头+数字的），只保留从商机表格导入的真实数据
+    if (isNewImport) {
     this.data.opportunities = this.data.opportunities.filter(o => o.id.startsWith('OPP_O'));
+    }
     oppOpps.forEach(o => {
-      if (!this.data.opportunities.find(x => x.id === o.id)) {
+      const existing = this.data.opportunities.find(x => x.id === o.id);
+      if (existing) {
+        if (o.salesId && existing.salesId !== o.salesId) { existing.salesId = o.salesId; oppCount++; }
+      } else {
         this.data.opportunities.push(o); oppCount++;
       }
     });
-    if (oppPersonCount > 0) { personCount += oppPersonCount; }
     // 无条件保存，确保所有导入数据写入 localStorage
-    store.set(this.data); localStorage.setItem(key, '1');
+    if (isNewImport || count > 0 || oppCount > 0) {
+      store.set(this.data);
+      if (isNewImport) localStorage.setItem(key, '1');
+    }
   },
 
   toast(message, type='info'){
