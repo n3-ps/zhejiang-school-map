@@ -998,7 +998,7 @@ const app = {
   hideContextMenu(){ document.getElementById('contextMenu').classList.add('hidden'); },
 
   importInTransitData(){
-    const key = 'zhejiang_csv_imported_v7';
+    const key = 'zhejiang_csv_imported_v9';
     if (localStorage.getItem(key)) return;
     const schools = [
       {id:'CSV_S1',name:'荣怀教育集团',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:11.44,remark:'从小GB在途项目明细导入'},
@@ -1170,15 +1170,16 @@ const app = {
         this.data.persons.push(p); oppPersonCount++;
       }
     });
-    oppOpps.forEach(o => {
-      if (!this.data.opportunities.find(x => x.id === o.id)) {
-        this.data.opportunities.push(o);
-      }
-    });
+    let oppCount = 0;
     // 清理模拟数据生成的商机（ID为 O 开头+数字的），只保留从商机表格导入的真实数据
     this.data.opportunities = this.data.opportunities.filter(o => o.id.startsWith('OPP_O'));
+    oppOpps.forEach(o => {
+      if (!this.data.opportunities.find(x => x.id === o.id)) {
+        this.data.opportunities.push(o); oppCount++;
+      }
+    });
     if (oppPersonCount > 0) { personCount += oppPersonCount; }
-    if (count > 0 || personCount > 0 || deliveryCount > 0) { store.set(this.data); localStorage.setItem(key, '1'); }
+    if (count > 0 || personCount > 0 || deliveryCount > 0 || oppCount > 0) { store.set(this.data); localStorage.setItem(key, '1'); }
   },
 
   toast(message, type='info'){
@@ -1203,3 +1204,5 @@ window.addEventListener('DOMContentLoaded', ()=>app.init());
 </script>
 </body>
 </html>
+      {id:'OPP_P8',name:'王继周',role:'驻点销售',cities:["台州市"],schoolIds:[],phone:'',status:'在职'},
+      {id:'OPP_P9',name:'苏鸿建',role:'驻点销售',cities:["台州市"],schoolIds:[],phone:'',status:'在职'},
