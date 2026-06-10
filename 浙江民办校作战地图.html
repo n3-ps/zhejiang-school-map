@@ -214,16 +214,35 @@ const app = {
   init() {
     store.init(); this.data = store.get();
     const appVer = localStorage.getItem('zhejiang_app_ver');
-    if (appVer !== '3') {
-      localStorage.setItem('zhejiang_app_ver', '3');
+    if (appVer !== '4') {
+      localStorage.setItem('zhejiang_app_ver', '4');
       localStorage.removeItem(store.key);
       localStorage.removeItem('zhejiang_csv_imported_v10');
       store.init();
       this.data = store.get();
     }
     if (this.data.schools.length === 0) {
-      this.data = generateMockData(); store.set(this.data);
-      this.toast('已加载示例数据，你可以编辑或导入真实数据','info');
+      (async () => {
+        try {
+          const res = await fetch('map-data-backup.json');
+          if (res.ok) {
+            const backup = await res.json();
+            for (const key in backup) {
+              localStorage.setItem(key, backup[key]);
+            }
+            localStorage.setItem('zhejiang_app_ver', '4');
+            this.data = store.get();
+            store.set(this.data);
+          }
+        } catch(e) { console.warn('备份数据加载失败:', e); }
+        if (this.data.schools.length === 0) {
+          this.data = generateMockData(); store.set(this.data);
+          this.toast('已加载示例数据，你可以编辑或导入真实数据','info');
+        }
+        this.importInTransitData();
+        this.bindNav(); this.bindSearch(); this.updateStorageInfo(); this.go('home');
+      })();
+      return;
     }
     this.importInTransitData();
     this.bindNav(); this.bindSearch(); this.updateStorageInfo(); this.go('home');
