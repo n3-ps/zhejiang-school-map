@@ -998,9 +998,8 @@ const app = {
   hideContextMenu(){ document.getElementById('contextMenu').classList.add('hidden'); },
 
   importInTransitData(){
-    const key = 'zhejiang_csv_imported_v4';
+    const key = 'zhejiang_csv_imported_v3';
     if (localStorage.getItem(key)) return;
-    this.data.opportunities = [];
     const schools = [
       {id:'CSV_S1',name:'荣怀教育集团',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:11.44,remark:'从小GB在途项目明细导入'},
       {id:'CSV_S2',name:'荣怀集团仙桃校区',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:23.5,remark:'从小GB在途项目明细导入'},
@@ -1100,101 +1099,56 @@ const app = {
       {id:'OPP_S39',name:'乐清市外国语学校',city:'温州市',district:'乐清市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
       {id:'OPP_S40',name:'泰顺县明德实验学校',city:'温州市',district:'泰顺县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
     ];
-
-    const deliveries = [
-      {id:'CSV_D1_1',schoolId:'CSV_S1',name:'2026年浙江省绍兴市诸暨市广西贺州荣怀教育集团一体机采购项目(民办校)',productTypes:['智慧窗'],quantities:{'智慧窗':1},deployLocation:'待定',progress:'未启动',managerId:'',planDate:'2026/4/20',actualDate:'',remark:'从小GB在途项目明细导入'},
-      {id:'CSV_D2_1',schoolId:'CSV_S2',name:'2026年浙江省绍兴市诸暨市荣怀集团仙桃校区智慧操场及批阅机采购项目（民办校）',productTypes:['小G/B-综合解决方案'],quantities:{'小G/B-综合解决方案':1},deployLocation:'待定',progress:'未启动',managerId:'',planDate:'2026/4/20',actualDate:'',remark:'从小GB在途项目明细导入'},
-      {id:'CSV_D3_1',schoolId:'CSV_S3',name:'2026年义乌商城学校综合解决项目结算单',productTypes:['数智作业'],quantities:{'数智作业':1},deployLocation:'待定',progress:'未启动',managerId:'',planDate:'2026/5/22',actualDate:'',remark:'从小GB在途项目明细导入'},
-      {id:'CSV_D4_1',schoolId:'CSV_S4',name:'2026浙江省绍兴市诸暨市荣怀贺州学校智慧操场采购项目（民办校）',productTypes:['智慧体育'],quantities:{'智慧体育':1},deployLocation:'待定',progress:'未启动',managerId:'',planDate:'2026/5/22',actualDate:'',remark:'从小GB在途项目明细导入'},
-      {id:'CSV_D4_2',schoolId:'CSV_S4',name:'2026浙江省绍兴市诸暨市荣怀贺州校区批阅机 采购合同（民办校）',productTypes:['批阅机'],quantities:{'批阅机':1},deployLocation:'待定',progress:'未启动',managerId:'',planDate:'2026/5/20',actualDate:'',remark:'从小GB在途项目明细导入'}
+    const oppOpps = [
+      {id:'OPP_O20260501650',schoolId:'OPP_S1',name:'浙江育英教育集团智慧教育项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:0.01,signDate:'2026-07-24',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260501224',schoolId:'OPP_S2',name:'2026年荣怀贺州批阅机采购',stage:'招投标',products:["数智作业", "批阅机"],amount:3.5,signDate:'2026-05-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260501223',schoolId:'OPP_S2',name:'2026年荣怀贺州智慧操场采购项目',stage:'招投标',products:["智慧操场"],amount:38.8,signDate:'2026-05-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260500514',schoolId:'OPP_S3',name:'2026年义乌群星外国语学校智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:25.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20260500513',schoolId:'OPP_S4',name:'2026年义乌公学智慧黑板+批阅机项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:50.0,signDate:'2026-10-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20260400085',schoolId:'OPP_S5',name:'永兴中学重批机试点项目',stage:'初步接触',products:["数智作业", "批阅机"],amount:4.8,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260302945',schoolId:'OPP_S6',name:'26年粮仓海亮集采框架项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:2000.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260302942',schoolId:'OPP_S7',name:'26年粮仓温州瑞安新纪元人工智能建设一期',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260302939',schoolId:'OPP_S8',name:'26年粮仓温州慧中初高中智慧作业项目',stage:'初步接触',products:["数智作业"],amount:300.0,signDate:'2026-07-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260302930',schoolId:'OPP_S9',name:'德清华盛达校本作业项目',stage:'初步接触',products:["数智作业"],amount:50.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260302757',schoolId:'OPP_S10',name:'秀水高级中学智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:45.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260302615',schoolId:'OPP_S11',name:'上师大附属嘉善实验学校作业',stage:'初步接触',products:["数智作业"],amount:150.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260302611',schoolId:'OPP_S12',name:'三门县瑞杰高级职业中学高中部数智作业项目',stage:'初步接触',products:["数智作业"],amount:70.0,signDate:'2026-07-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260302023',schoolId:'OPP_S13',name:'2026年湖州求是集团智慧课堂采购项目',stage:'初步接触',products:["智慧课堂"],amount:500.0,signDate:'2026-08-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20260301710',schoolId:'OPP_S14',name:'宁波鄞州新蓝青学校软件平台项目',stage:'招投标',products:["智慧课堂", "智慧窗"],amount:345.0,signDate:'2026-08-31',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260301308',schoolId:'OPP_S15',name:'宁波至诚学校智慧校园项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:50.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260301270',schoolId:'OPP_S16',name:'宁波光华学校校园综合项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:150.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260301250',schoolId:'OPP_S17',name:'遂昌育才初中部数智作业项目',stage:'初步接触',products:["数智作业"],amount:100.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260200916',schoolId:'OPP_S18',name:'台州康桥学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:30.0,signDate:'2026-08-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260200915',schoolId:'OPP_S19',name:'台州市双语高级中学数智作业、智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:50.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260200914',schoolId:'OPP_S20',name:'温岭市存志外国语学校数智作业、智慧黑板项目',stage:'初步接触',products:["智慧窗"],amount:50.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260102684',schoolId:'OPP_S14',name:'宁波鄞州新蓝青学校新建校智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:80.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260102484',schoolId:'OPP_S21',name:'平湖杭州湾学校智慧课堂项目',stage:'初步接触',products:["智慧课堂"],amount:15.0,signDate:'2026-06-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260102424',schoolId:'OPP_S22',name:'台州书生中学数智作业、智慧黑板、培优项目',stage:'初步接触',products:["数智作业"],amount:200.0,signDate:'2026-09-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20260102423',schoolId:'OPP_S23',name:'杭州鼎文学校科创中心项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:160.0,signDate:'2026-05-29',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102421',schoolId:'OPP_S24',name:'育才科技高中新建校项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:120.0,signDate:'2026-09-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102419',schoolId:'OPP_S10',name:'秀水高级中学校本作业',stage:'初步接触',products:["数智作业"],amount:80.0,signDate:'2026-09-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：潘曙光'},
+      {id:'OPP_O20260102417',schoolId:'OPP_S25',name:'嘉善新世纪学校作业批阅机',stage:'初步接触',products:["智慧课堂"],amount:7.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102416',schoolId:'OPP_S26',name:'高桥金帆一体机项目',stage:'初步接触',products:["智慧窗"],amount:30.0,signDate:'2026-09-26',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：储成康'},
+      {id:'OPP_O20260102414',schoolId:'OPP_S27',name:'东瓯中学智慧体育采购项目',stage:'初步接触',products:["智慧操场"],amount:28.0,signDate:'2026-08-31',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260102410',schoolId:'OPP_S28',name:'温州育英实验学校AI自习室项目',stage:'初步接触',products:["智慧课堂"],amount:20.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260102296',schoolId:'OPP_S29',name:'宁波神舟学校数智作业项目',stage:'初步接触',products:["数智作业", "批阅机"],amount:80.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20260100379',schoolId:'OPP_S2',name:'2026年粮仓荣怀信息化项目二期',stage:'招投标',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100377',schoolId:'OPP_S30',name:'2026年粮仓新昌南瑞实验一体机采购项目',stage:'初步接触',products:["智慧窗"],amount:40.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100376',schoolId:'OPP_S31',name:'2026年粮仓暨北小学未来学校建设一期项目',stage:'方案输出',products:["智慧课堂", "智慧窗"],amount:450.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100375',schoolId:'OPP_S6',name:'2026年粮仓海亮教育园个册合作项目',stage:'初步接触',products:["个册"],amount:400.0,signDate:'2026-09-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20260100361',schoolId:'OPP_S32',name:'金华荣光学校智慧操场项目',stage:'初步接触',products:["数智作业"],amount:28.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20251202862',schoolId:'OPP_S14',name:'宁波鄞州新蓝青新建校项目',stage:'初步接触',products:["智慧课堂", "智慧窗"],amount:500.0,signDate:'2026-08-29',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20251202860',schoolId:'OPP_S33',name:'余姚市高风学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:50.0,signDate:'2026-07-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：许梁'},
+      {id:'OPP_O20251102181',schoolId:'OPP_S34',name:'台州市路桥区东方理想学校数智作业项目',stage:'初步接触',products:["数智作业"],amount:100.0,signDate:'2026-07-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20251101593',schoolId:'OPP_S35',name:'温岭之江高级中学数智作业、智慧黑板项目',stage:'初步接触',products:["数智作业"],amount:200.0,signDate:'2026-08-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：周强'},
+      {id:'OPP_O20251000928',schoolId:'OPP_S36',name:'永嘉翔宇中学2个班智慧课堂投放（西湖论坛）',stage:'初步接触',products:["智慧课堂"],amount:50.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：贺家乐'},
+      {id:'OPP_O20251000028',schoolId:'OPP_S3',name:'2026义乌市群星外国语学校高一年级智慧课堂项目',stage:'需求对接',products:["智慧课堂"],amount:24.0,signDate:'2026-08-31',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：钟翔'},
+      {id:'OPP_O20250900094',schoolId:'OPP_S37',name:'平阳县建兰中学智慧窗项目',stage:'初步接触',products:["智慧窗"],amount:25.0,signDate:'2026-06-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：贺家乐'},
+      {id:'OPP_O20250800085',schoolId:'OPP_S31',name:'2025年粮仓暨北小学五育评价系统建设项目',stage:'方案输出',products:["智慧课堂"],amount:10.0,signDate:'2026-08-01',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20250701527',schoolId:'OPP_S38',name:'瑾瑜教育集团Ai自习室建设',stage:'初步接触',products:["智慧课堂"],amount:20.0,signDate:'2026-10-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20250302088',schoolId:'OPP_S39',name:'乐清外国语一体机采购',stage:'初步接触',products:["智慧窗"],amount:30.0,signDate:'2026-06-11',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
+      {id:'OPP_O20250301534',schoolId:'OPP_S40',name:'泰顺明德实验学校轻批机一期采购',stage:'方案输出',products:["智慧课堂"],amount:12.0,signDate:'2026-05-30',salesId:'',milestones:'',risks:'',remark:'从在途商机导入，负责人：张森'},
     ];
-    let count = 0;
-    schools.forEach(s => {
-      if (!this.data.schools.find(x => x.name === s.name)) {
-        this.data.schools.push(s); count++;
-      }
-    });
-    deliveries.forEach(d => { this.data.deliveries.push(d); });
-    const persons = [
-      {id:'CSV_PM1',name:'付后旺',role:'驻点销售',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_R01',name:'吴震宇',role:'区域负责人',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_R02',name:'张子遥',role:'区域负责人',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_R03',name:'王娜',role:'区域负责人',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_R04',name:'刘建',role:'区域负责人',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D01',name:'罗会萌',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D02',name:'张珍取',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D03',name:'陈琛',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D04',name:'汤思雨',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D05',name:'范思敏',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D06',name:'秦正京',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D07',name:'李智',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D08',name:'张媛媛',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D09',name:'陈龙',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D10',name:'侯超',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D11',name:'方明亮',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D12',name:'吴佩佩',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D13',name:'刘文文',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D14',name:'陈烨',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D15',name:'佘瑞聪',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D16',name:'胡羽姗',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D17',name:'叶兰',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D18',name:'卢晨宁',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D19',name:'余严兵',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D20',name:'葛敬武',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D21',name:'李广勇',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'},
-      {id:'CSV_D22',name:'余志威',role:'交付人员',cities:['绍兴市','金华市'],schoolIds:[],phone:'',status:'在职'}
-    ];
-    let personCount = 0;
-    persons.forEach(p => {
-      if (!this.data.persons.find(x => x.name === p.name)) {
-        this.data.persons.push(p); personCount++;
-      }
-    });
-
-    // 从在途商机导入的学校
-    const oppSchools = [
-      {id:'OPP_S1',name:'浙江育英教育集团',city:'杭州市',district:'钱塘区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S2',name:'荣怀集团有限公司',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S3',name:'义乌市群星外国语学校',city:'金华市',district:'义乌市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S4',name:'义乌公学',city:'金华市',district:'义乌市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S5',name:'杭州市富阳区永兴学校',city:'杭州市',district:'富阳区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S6',name:'浙江海亮科技有限公司',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S7',name:'瑞安市新纪元实验学校',city:'温州市',district:'瑞安市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S8',name:'温州慧中公学高级中学有限公司',city:'温州市',district:'永嘉县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S9',name:'德清县华盛达外语学校',city:'湖州市',district:'德清县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S10',name:'嘉兴市秀水高级中学',city:'嘉兴市',district:'南湖区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S11',name:'嘉善县上师实验学校',city:'嘉兴市',district:'嘉善县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S12',name:'三门县瑞杰高级职业中学',city:'台州市',district:'三门县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S13',name:'德清县求是高级中学',city:'湖州市',district:'德清县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S14',name:'宁波鄞州新蓝青学校',city:'宁波市',district:'鄞州区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S15',name:'宁波至诚学校',city:'宁波市',district:'北仑区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S16',name:'宁波光华学校',city:'宁波市',district:'慈溪市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S17',name:'遂昌锦绣育才教育集团学校',city:'丽水市',district:'遂昌县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S18',name:'台州康桥学校',city:'台州市',district:'椒江区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S19',name:'台州市双语高级中学',city:'台州市',district:'椒江区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S20',name:'温岭市存志外国语学校',city:'台州市',district:'温岭市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S21',name:'平湖杭州湾实验学校',city:'嘉兴市',district:'平湖市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S22',name:'台州市书生中学',city:'台州市',district:'椒江区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S23',name:'杭州鼎文学校',city:'杭州市',district:'钱塘区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S24',name:'浙江锦绣育才教育科技集团有限公司',city:'杭州市',district:'拱墅区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S25',name:'嘉善新世纪学校',city:'嘉兴市',district:'嘉善县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S26',name:'杭州市萧山区高桥金帆实验学校',city:'杭州市',district:'萧山区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S27',name:'温州东瓯中学',city:'温州市',district:'龙湾区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S28',name:'温州育英国际实验学校',city:'温州市',district:'瓯海区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S29',name:'宁波神舟学校',city:'宁波市',district:'海曙区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S30',name:'新昌县南瑞实验学校',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S31',name:'诸暨市暨阳街道暨北小学',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S32',name:'金华市荣光国际学校',city:'金华市',district:'婺城区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S33',name:'余姚市高风中学',city:'宁波市',district:'余姚市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S34',name:'台州市路桥区东方理想学校',city:'台州市',district:'椒江区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S35',name:'温岭市之江高级中学',city:'台州市',district:'温岭市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S36',name:'温州翔宇中学',city:'温州市',district:'永嘉县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S37',name:'平阳县建兰学校',city:'温州市',district:'平阳县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S38',name:'瑾瑜集团有限公司',city:'温州市',district:'龙湾区',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S39',name:'乐清市外国语学校',city:'温州市',district:'乐清市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-      {id:'OPP_S40',name:'泰顺县明德实验学校',city:'温州市',district:'泰顺县',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'',totalAmount:0,remark:'从在途商机导入'},
-    ];
- 
     const oppPersons = [
       {id:'OPP_P1',name:'储成康',role:'驻点销售',cities:["嘉兴市", "杭州市"],schoolIds:[],phone:'',status:'在职'},
       {id:'OPP_P2',name:'周强',role:'驻点销售',cities:["台州市"],schoolIds:[],phone:'',status:'在职'},
@@ -1213,6 +1167,11 @@ const app = {
     oppPersons.forEach(p => {
       if (!this.data.persons.find(x => x.name === p.name)) {
         this.data.persons.push(p); oppPersonCount++;
+      }
+    });
+    oppOpps.forEach(o => {
+      if (!this.data.opportunities.find(x => x.id === o.id)) {
+        this.data.opportunities.push(o);
       }
     });
     if (oppPersonCount > 0) { personCount += oppPersonCount; }
