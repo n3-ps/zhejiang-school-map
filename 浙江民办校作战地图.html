@@ -213,6 +213,14 @@ const app = {
 
   init() {
     store.init(); this.data = store.get();
+    const appVer = localStorage.getItem('zhejiang_app_ver');
+    if (appVer !== '3') {
+      localStorage.setItem('zhejiang_app_ver', '3');
+      localStorage.removeItem(store.key);
+      localStorage.removeItem('zhejiang_csv_imported_v10');
+      store.init();
+      this.data = store.get();
+    }
     if (this.data.schools.length === 0) {
       this.data = generateMockData(); store.set(this.data);
       this.toast('已加载示例数据，你可以编辑或导入真实数据','info');
