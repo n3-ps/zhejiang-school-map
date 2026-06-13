@@ -313,7 +313,7 @@ const app = {
                 <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer" onclick="app.go('city','${c.name}')">
                   <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${i===0?'bg-amber-500':i===1?'bg-slate-400':'bg-orange-400'}">${i+1}</div>
                   <div class="flex-1"><div class="font-semibold">${c.name}</div><div class="text-xs text-slate-500">${c.schoolCount}所学校 · ${c.deliveryCount}个交付 · ${c.opportunityCount}个商机</div></div>
-                  <div class="font-bold text-slate-700">${c.totalAmount}万</div>
+                  <div class="font-bold text-slate-700">签约金额 ${c.totalAmount}万</div>
                 </div>
               `).join('')}
             </div>
