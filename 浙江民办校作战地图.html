@@ -294,7 +294,7 @@ const app = {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         ${this.statCard('在途交付项目', stats.deliveryCount, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机数', stats.opportunityCount, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
-        ${this.statCard('商机总额', stats.opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
+        ${this.statCard('在途商机总额', stats.opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('累计签约金额', stats.totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -339,7 +339,7 @@ const app = {
   renderMap() {
     echarts.registerMap('zhejiang', zhejiangGeoJSON);
     const cityStats = this.computeCityStats();
-    const data = cityStats.map(c=>({name:c.name,value:c.schoolCount,delivery:c.deliveryCount,opportunity:c.opportunityCount,amount:c.totalAmount}));
+    const data = cityStats.map(c=>({name:c.name,value:c.schoolCount,delivery:c.deliveryCount,opportunity:c.opportunityCount,amount:c.totalAmount,opportunityAmount:c.opportunityAmount}));
     const chart = echarts.init(document.getElementById('mapContainer'));
     this.charts.map = chart;
     chart.setOption({
@@ -350,6 +350,7 @@ const app = {
             <div>合作学校: <b>${p.data.value}</b></div>
             <div>在途交付: <b>${p.data.delivery}</b></div>
             <div>在途商机: <b>${p.data.opportunity}</b></div>
+            <div>在途商机总额: <b>${p.data.opportunityAmount}万</b></div>
             <div>签约金额: <b>${p.data.amount}万</b></div>
           </div>`
       },
@@ -397,7 +398,7 @@ const app = {
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         ${this.statCard('在途交付', deliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机', opportunities.length, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
-        ${this.statCard('商机总额', opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
+        ${this.statCard('在途商机总额', opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('签约金额', totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
