@@ -292,7 +292,6 @@ const app = {
     const topCities = this.computeCityStats().sort((a,b)=>b.totalAmount-a.totalAmount).slice(0,3);
     container.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        ${this.statCard('合作学校总数', stats.schoolCount, 'ri-school-line', 'border-blue-500', 'bg-blue-50 text-blue-600')}
         ${this.statCard('在途交付项目', stats.deliveryCount, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机数', stats.opportunityCount, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
         ${this.statCard('商机总额', stats.opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
@@ -396,7 +395,6 @@ const app = {
         <h3 class="text-lg font-bold">${city}</h3>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        ${this.statCard('合作学校', schools.length, 'ri-school-line', 'border-blue-500', 'bg-blue-50 text-blue-600')}
         ${this.statCard('在途交付', deliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机', opportunities.length, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
         ${this.statCard('商机总额', opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
