@@ -295,6 +295,7 @@ const app = {
         ${this.statCard('合作学校总数', stats.schoolCount, 'ri-school-line', 'border-blue-500', 'bg-blue-50 text-blue-600')}
         ${this.statCard('在途交付项目', stats.deliveryCount, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机数', stats.opportunityCount, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
+        ${this.statCard('商机总额', stats.opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('累计签约金额', stats.totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -388,6 +389,7 @@ const app = {
     const deliveries = this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId));
     const opportunities = this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId));
     const totalAmount = schools.reduce((a,s)=>a+(+s.totalAmount||0),0);
+    const opportunityAmount = opportunities.reduce((a,o)=>a+(+o.amount||0),0);
     container.innerHTML = `
       <div class="mb-4 flex items-center gap-3">
         <button class="btn px-3 py-1.5 rounded-lg bg-slate-100 text-sm" onclick="app.go('home')"><i class="ri-arrow-left-line"></i> 返回全省地图</button>
@@ -397,6 +399,7 @@ const app = {
         ${this.statCard('合作学校', schools.length, 'ri-school-line', 'border-blue-500', 'bg-blue-50 text-blue-600')}
         ${this.statCard('在途交付', deliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机', opportunities.length, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
+        ${this.statCard('商机总额', opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('签约金额', totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -670,8 +673,8 @@ const app = {
 
   dataLabel(k){ return {schools:'学校档案',deliveries:'交付项目',opportunities:'在途商机',persons:'人员责任',stakeholders:'核心干系人'}[k]; },
 
-  computeProvinceStats(){ return { schoolCount: this.data.schools.length, deliveryCount: this.data.deliveries.length, opportunityCount: this.data.opportunities.length, totalAmount: +(this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4) }; },
-  computeCityStats(){ return CITIES.map(city=>{ const schools=this.data.schools.filter(s=>s.city===city); const deliveries=this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId)); const opportunities=this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId)); return { name:city, schoolCount:schools.length, deliveryCount:deliveries.length, opportunityCount:opportunities.length, totalAmount:+(schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4) }; }); },
+  computeProvinceStats(){ return { schoolCount: this.data.schools.length, deliveryCount: this.data.deliveries.length, opportunityCount: this.data.opportunities.length, totalAmount: +(this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4), opportunityAmount: +(this.data.opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4) }; },
+  computeCityStats(){ return CITIES.map(city=>{ const schools=this.data.schools.filter(s=>s.city===city); const deliveries=this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId)); const opportunities=this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId)); return { name:city, schoolCount:schools.length, deliveryCount:deliveries.length, opportunityCount:opportunities.length, totalAmount:+(schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4), opportunityAmount:+(opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4) }; }); },
 
   openModal(html){ const overlay=document.getElementById('modalOverlay'); const content=document.getElementById('modalContent'); content.innerHTML=html; overlay.classList.remove('hidden'); this.modalStack.push(content); },
   closeModal(){ document.getElementById('modalOverlay').classList.add('hidden'); document.getElementById('modalContent').innerHTML=''; this.modalStack=[]; },
