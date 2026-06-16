@@ -54,9 +54,33 @@
     #contextMenu { position: fixed; background: #fff; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1); border: 1px solid #e2e8f0; padding: 4px 0; z-index: 100; min-width: 140px; display: none; }
     .context-item { padding: 8px 12px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
     .context-item:hover { background: #f1f5f9; }
+    .login-overlay { position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#f1f5f9; }
+    .login-overlay.hidden { display:none; }
+    .login-card { background:#fff;padding:32px 36px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);width:340px; }
+    .login-card input { width:100%;padding:10px 14px;margin-bottom:12px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;outline:none; }
+    .login-card input:focus { border-color:#2563eb; }
+    .login-card button { width:100%;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer; }
+    .login-card button:hover { background:#1d4ed8; }
   </style>
 </head>
 <body>
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:20px">
+      <i class="ri-lock-line" style="font-size:36px;color:#2563eb"></i>
+      <h2 style="font-size:20px;font-weight:bold;color:#1e293b;margin-top:8px">浙江省民办校作战地图</h2>
+      <p style="color:#94a3b8;font-size:13px;margin-top:4px">请登录后查看</p>
+    </div>
+    <input type="text" id="loginAccount" placeholder="账号" onkeydown="if(event.key==='Enter')handleLogin()">
+    <input type="password" id="loginPassword" placeholder="密码" onkeydown="if(event.key==='Enter')handleLogin()">
+    <button onclick="handleLogin()">登 录</button>
+    <p id="loginError" class="hidden" style="color:#ef4444;font-size:13px;margin-top:10px;text-align:center">账号或密码错误</p>
+  </div>
+</div>
+<script>
+function handleLogin(){var a=document.getElementById('loginAccount').value;var p=document.getElementById('loginPassword').value;if(a==='2026'&&p==='fuhou123'){sessionStorage.setItem('loggedIn','1');document.getElementById('loginOverlay').classList.add('hidden');}else{document.getElementById('loginError').classList.remove('hidden');}}
+if(sessionStorage.getItem('loggedIn')){document.getElementById('loginOverlay').classList.add('hidden');}
+</script>
 <div id="app" class="flex h-screen overflow-hidden">
   <aside class="sidebar flex flex-col text-white flex-shrink-0">
     <div class="p-5 border-b border-slate-700">
