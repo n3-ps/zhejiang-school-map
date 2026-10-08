@@ -1,9 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>浙江民办校业务作战地图</title>
+  <script src="cloud-config.js"></script>
+  <script src="cloud-sync.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
@@ -54,6 +56,13 @@
     #contextMenu { position: fixed; background: #fff; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,.1); border: 1px solid #e2e8f0; padding: 4px 0; z-index: 100; min-width: 140px; display: none; }
     .context-item { padding: 8px 12px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
     .context-item:hover { background: #f1f5f9; }
+    .cloud-dialog { width: min(440px, calc(100vw - 32px)); border: 0; border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px #0f172a40; color: #334155; }
+    .cloud-dialog::backdrop { background: #0f172a80; }
+    .cloud-dialog h3 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .cloud-dialog p { margin: 10px 0; overflow-wrap: anywhere; }
+    .cloud-dialog input { display: block; width: 100%; border: 1px solid #cbd5e1; padding: 10px; margin: 12px 0; border-radius: 8px; }
+    .cloud-dialog button { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; padding: 8px 12px; margin: 6px 8px 0 0; }
+    .cloud-dialog button:hover { background: #dbeafe; }
   </style>
 </head>
 <body>
@@ -84,12 +93,13 @@
   </aside>
 
   <main class="flex-1 flex flex-col min-w-0">
-    <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap gap-3 items-center justify-between flex-shrink-0">
       <div class="flex items-center gap-4">
         <h2 id="pageTitle" class="text-xl font-bold text-slate-800">浙江省民办校作战地图</h2>
         <span id="pageSubtitle" class="text-sm text-slate-500 hidden"></span>
       </div>
       <div class="flex items-center gap-3">
+        <div class="text-right max-w-56"><div id="cloudSaveStatus" role="status" aria-live="polite" class="text-xs text-slate-500">正在加载…</div><button id="cloudSyncButton" type="button" class="text-sm text-blue-600 hover:underline">云端同步</button></div>
         <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5">
           <i class="ri-search-line text-slate-400"></i>
           <input id="globalSearch" type="text" placeholder="搜索学校、人员、项目..." class="bg-transparent border-none outline-none text-sm w-56">
@@ -121,7 +131,7 @@ const CITIES = ['杭州市','宁波市','温州市','绍兴市','湖州市','嘉
 const SCHOOL_TYPES = ['小学','初中','高中','一贯制','其他'];
  const PRODUCT_TYPES = ['智慧课堂','批阅机','数智作业','个册','AI听说课堂','智慧窗','好奇窗','创客实验室','智慧操场','体育小站'];
 const DELIVERY_PROGRESS = ['未启动','部署中','已部署','待验收','已完成'];
-const OPPORTUNITY_STAGES = ['初步接触','需求对接','方案输出','招投标','意向签约','已流失'];
+const OPPORTUNITY_STAGES = ['初步接触','需求对接','方案输出','招投标','意向签约','已赢单','已流失'];
 const ROLES = ['驻点销售','交付人员','服务人员','区域负责人'];
 const PERSON_STATUS = ['在职','离职','调岗'];
 const STAKEHOLDER_TYPES = ['决策人','对接人','影响人','技术负责人'];
@@ -134,117 +144,44 @@ const store = {
   getDefaultData() { return { schools: [], deliveries: [], opportunities: [], persons: [], stakeholders: [], logs: [] }; }
 };
 
-function generateMockData() {
-  const sampleSchools = [
-    {city:'杭州市',names:['杭州育才外国语学校','杭州绿城育华学校','杭州文澜中学','杭州建兰中学','杭州公益中学','杭州启正中学','杭州观成实验学校']},
-    {city:'宁波市',names:['宁波镇海蛟川书院','宁波兴宁中学','宁波蓝青学校','宁波科学中学','宁波东海实验学校']},
-    {city:'温州市',names:['温州育英国际实验学校','温州实验中学','温州外国语学校','温州第二外国语学校','温州森马协和国际学校']},
-    {city:'绍兴市',names:['绍兴市第一初级中学','绍兴鲁迅外国语学校','绍兴蕺山外国语学校','绍兴轻纺城中学']},
-    {city:'嘉兴市',names:['嘉兴一中实验学校','嘉兴秀洲现代实验学校','嘉兴南湖国际实验学校','嘉善新世纪学校']},
-    {city:'湖州市',names:['湖州中学西山漾校区','湖州新世纪外国语学校','湖州帕丁顿双语学校','德清莫干山外国语学校']},
-    {city:'金华市',names:['金华外国语学校','义乌外国语学校','东阳外国语学校','永康外国语学校','金华荣光国际学校']},
-    {city:'衢州市',names:['衢州华茂外国语学校','衢州白云学校','衢州仲尼中学','龙游华茂外国语学校']},
-    {city:'舟山市',names:['舟山南海实验学校','舟山绿城育华学校','岱山实验学校']},
-    {city:'台州市',names:['台州书生中学','台州双语学校','台州学院附属中学','温岭实验中学','玉环实验学校']},
-    {city:'丽水市',names:['丽水外国语实验学校','丽水市文元学校','缙云实验中学','青田华侨国际学校']}
-  ];
-  const data = store.getDefaultData(); let sid = 1;
-  sampleSchools.forEach(group => {
-    group.names.forEach(name => {
-      const type = SCHOOL_TYPES[Math.floor(Math.random()*4)];
-      const hasDelivery = Math.random() > 0.3;
-      const hasOpp = Math.random() > 0.4;
-      const school = {
-        id: 'S'+sid, name, city: group.city, district: group.city.replace('市','') + '区', schoolType: [type],
-        principal: '校长'+sid, principalTitle: '校长',
-        contact: '老师'+sid, contactTitle: ['主任','年级组长','教研组长'][Math.floor(Math.random()*3)],
-        phone: '138'+String(Math.floor(Math.random()*1e8)).padStart(8,'0'), wechatEmail: 'wechat_'+sid,
-        signDate: '2023-0'+Math.floor(Math.random()*9+1)+'-'+String(Math.floor(Math.random()*28+1)).padStart(2,'0'),
-        totalAmount: Math.floor(Math.random()*300+50), remark: ''
-      };
-      data.schools.push(school);
-      if (hasDelivery) {
-        const prods = []; const count = Math.floor(Math.random()*3)+1;
-        for (let i=0;i<count;i++) prods.push(PRODUCT_TYPES[Math.floor(Math.random()*PRODUCT_TYPES.length)]);
-        data.deliveries.push({
-          id: 'D'+sid, schoolId: school.id, name: name + '智慧校园建设项目',
-          productTypes: [...new Set(prods)],
-          quantities: prods.reduce((a,b)=>{a[b]=(a[b]||0)+Math.floor(Math.random()*20+5);return a;},{}),
-          deployLocation: '主校区/教学楼/办公室',
-          progress: DELIVERY_PROGRESS[Math.floor(Math.random()*DELIVERY_PROGRESS.length)],
-          managerId: '', planDate: '2024-'+String(Math.floor(Math.random()*12+1)).padStart(2,'0')+'-15',
-          actualDate: Math.random()>0.5?'2024-'+String(Math.floor(Math.random()*12+1)).padStart(2,'0')+'-20':'', remark: ''
-        });
-      }
-      if (hasOpp) {
-        const prods = []; const count = Math.floor(Math.random()*2)+1;
-        for (let i=0;i<count;i++) prods.push(PRODUCT_TYPES[Math.floor(Math.random()*PRODUCT_TYPES.length)]);
-        data.opportunities.push({
-          id: 'O'+sid, schoolId: school.id, name: name + '二期扩容商机',
-          stage: OPPORTUNITY_STAGES[Math.floor(Math.random()*OPPORTUNITY_STAGES.length)],
-          products: [...new Set(prods)], amount: Math.floor(Math.random()*150+20),
-          signDate: '2024-'+String(Math.floor(Math.random()*12+1)).padStart(2,'0')+'-15', salesId: '',
-          milestones: '1.初步接触\n2.需求对接\n3.方案输出', risks: '', remark: ''
-        });
-      }
-      data.stakeholders.push({
-        id: 'ST'+sid, name: '干系人'+sid, schoolId: school.id,
-        title: ['校长','副校长','教务主任','信息中心主任'][Math.floor(Math.random()*4)],
-        phone: '139'+String(Math.floor(Math.random()*1e8)).padStart(8,'0'), wechatEmail: 'wx_'+sid,
-        type: STAKEHOLDER_TYPES[Math.floor(Math.random()*STAKEHOLDER_TYPES.length)],
-        records: '2024-01-15 首次拜访，介绍产品方案\n2024-02-20 校方提出预算审批流程'
-      });
-      sid++;
-    });
-  });
-  const personNames = ['张伟','李娜','王强','刘洋','陈静','杨帆','赵敏','孙杰','周婷','吴磊','郑涛','钱程'];
-  personNames.forEach((n,i)=>{
-    data.persons.push({
-      id: 'P'+(i+1), name: n, role: ROLES[i%ROLES.length],
-      cities: [CITIES[Math.floor(Math.random()*CITIES.length)], CITIES[Math.floor(Math.random()*CITIES.length)]],
-      schoolIds: [], phone: '137'+String(Math.floor(Math.random()*1e8)).padStart(8,'0'), status: '在职'
-    });
-  });
-  return data;
-}
-
 const app = {
-  data: null, currentPage: 'home', currentCity: null, hoveredCity: null, charts: {}, modalStack: [],
+  data: null, currentPage: 'home', currentCity: null, hoveredCity: null, charts: {}, modalStack: [], listFilters: {},
 
-  init() {
+  escapeHTML(value){ return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); },
+  jsArg(value){ return "decodeURIComponent('"+encodeURIComponent(String(value??'')).replace(/'/g,'%27')+"')"; },
+  optionsFor(options,current){ return [...new Set([...options,...(Array.isArray(current)?current:current?[current]:[])])]; },
+  dateInputValue(value){
+    const text=String(value??'').trim();
+    const parts=text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:T.*)?$/);
+    return parts?`${parts[1]}-${parts[2].padStart(2,'0')}-${parts[3].padStart(2,'0')}`:text;
+  },
+
+  async init() {
+    // 版本升级只更新标记；已有台账（包括用户清空的台账）始终保留。
+    const hadSavedData = localStorage.getItem(store.key) !== null;
     store.init(); this.data = store.get();
-    const appVer = localStorage.getItem('zhejiang_app_ver');
-    if (appVer !== '4') {
-      localStorage.setItem('zhejiang_app_ver', '5');
-      localStorage.removeItem(store.key);
-      localStorage.removeItem('zhejiang_csv_imported_v10');
-      store.init();
-      this.data = store.get();
-    }
-    if (this.data.schools.length === 0) {
-      (async () => {
-        try {
-          const res = await fetch('map-data-backup.json');
-          if (res.ok) {
-            const backup = await res.json();
-            for (const key in backup) {
-              localStorage.setItem(key, backup[key]);
-            }
-      localStorage.setItem('zhejiang_app_ver', '5');
-        this.data = store.get();
+    localStorage.setItem('zhejiang_app_ver', '6');
+    if (!hadSavedData && !(window.SCHOOL_MAP_CLOUD?.url && window.SCHOOL_MAP_CLOUD?.publishableKey)) {
+      let loadedBackup = false;
+      try {
+        const res = await fetch('map-data-backup.json');
+        if (res.ok) {
+          const backup = await res.json();
+          const saved = backup[store.key];
+          const data = saved ? (typeof saved === 'string' ? JSON.parse(saved) : saved) : backup;
+          if (['schools','deliveries','opportunities','persons','stakeholders'].every(k => Array.isArray(data[k]))) {
+            this.data = { ...store.getDefaultData(), ...data };
             store.set(this.data);
+            localStorage.setItem('zhejiang_csv_imported_v10', '1');
+            loadedBackup = true;
           }
-        } catch(e) { console.warn('备份数据加载失败:', e); }
-        if (this.data.schools.length === 0) {
-          this.data = generateMockData(); store.set(this.data);
-          this.toast('已加载示例数据，你可以编辑或导入真实数据','info');
         }
-        this.importInTransitData();
-        this.bindNav(); this.bindSearch(); this.updateStorageInfo(); this.go('home');
-      })();
-      return;
+      } catch(e) { console.warn('备份数据加载失败:', e); }
+      if (!loadedBackup) this.importInTransitData();
+    } else if (hadSavedData) {
+      // 旧浏览器可能缺少导入标记，也不能因此恢复已删除的种子记录。
+      localStorage.setItem('zhejiang_csv_imported_v10', '1');
     }
-    this.importInTransitData();
     this.bindNav(); this.bindSearch(); this.updateStorageInfo(); this.go('home');
   },
 
@@ -260,14 +197,70 @@ const app = {
   bindSearch() {
     const input = document.getElementById('globalSearch'); let timer;
     input.addEventListener('input', e => { clearTimeout(timer); timer = setTimeout(()=>this.handleSearch(e.target.value), 300); });
-    input.addEventListener('keydown', e => { if(e.key==='Enter') this.handleSearch(input.value); });
+    input.addEventListener('keydown', e => {
+      if(e.key==='Enter') { clearTimeout(timer); this.handleSearch(input.value); }
+      if(e.key==='Escape') document.getElementById('globalSearchResults')?.classList.add('hidden');
+    });
+    document.addEventListener('click', e => {
+      if (!input.parentElement.contains(e.target)) document.getElementById('globalSearchResults')?.classList.add('hidden');
+    });
+  },
+
+  getSearchResults(q) {
+    q = String(q||'').trim().toLowerCase();
+    if (!q) return [];
+    const matches = fields => fields.some(v => String(v||'').toLowerCase().includes(q));
+    const schoolName = id => this.data.schools.find(s=>s.id===id)?.name || '未关联学校';
+    const results = [];
+    this.data.schools.forEach(s => {
+      if (matches([s.name,s.city,s.district,s.principal,s.contact,s.phone])) results.push({type:'school',id:s.id,label:s.name,detail:`学校 · ${s.city} ${s.district||''}`});
+    });
+    this.data.persons.forEach(p => {
+      if (matches([p.name,p.role,p.phone,...(p.cities||[])])) results.push({type:'person',id:p.id,label:p.name,detail:`人员 · ${p.role} · ${(p.cities||[]).join('/')}`});
+    });
+    this.data.deliveries.forEach(d => {
+      const school = schoolName(d.schoolId);
+      if (matches([d.name,school,this.personName(d.managerId),...(d.productTypes||[])])) results.push({type:'delivery',id:d.id,label:d.name,detail:`交付 · ${school} · ${d.progress}`});
+    });
+    this.data.opportunities.forEach(o => {
+      const school = schoolName(o.schoolId);
+      if (matches([o.name,school,this.personName(o.salesId),...(o.products||[])])) results.push({type:'opportunity',id:o.id,label:o.name,detail:`商机 · ${school} · ${o.stage}`});
+    });
+    return results;
   },
 
   handleSearch(q) {
-    q = (q||'').trim(); if (!q) return;
-    const s = this.data.schools.find(x=>x.name.includes(q)||x.city.includes(q));
-    if (s) { this.openSchoolModal(s.id); }
-    else { this.toast('未找到匹配的学校','warning'); }
+    const input = document.getElementById('globalSearch');
+    let panel = document.getElementById('globalSearchResults');
+    if (!panel) {
+      panel = document.createElement('div'); panel.id = 'globalSearchResults';
+      panel.className = 'absolute right-0 top-full mt-2 w-96 max-h-96 overflow-auto bg-white border border-slate-200 rounded-lg shadow-xl z-40';
+      input.parentElement.classList.add('relative'); input.parentElement.appendChild(panel);
+    }
+    panel.replaceChildren();
+    q = String(q||'').trim();
+    panel.classList.toggle('hidden', !q);
+    if (!q) return;
+    const results = this.getSearchResults(q);
+    const heading = document.createElement('div');
+    heading.className = 'px-3 py-2 text-xs text-slate-500 border-b border-slate-100';
+    heading.textContent = results.length ? `找到 ${results.length} 条结果${results.length>50?'，显示前 50 条':''}` : '未找到匹配的学校、人员或项目';
+    panel.appendChild(heading);
+    results.slice(0,50).forEach(result => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'block w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100';
+      const label = document.createElement('div'); label.className = 'text-sm font-medium text-slate-800'; label.textContent = result.label;
+      const detail = document.createElement('div'); detail.className = 'text-xs text-slate-500 mt-1'; detail.textContent = result.detail;
+      button.append(label,detail);
+      button.addEventListener('click', () => {
+        panel.classList.add('hidden');
+        if (result.type==='school') this.openSchoolModal(result.id);
+        if (result.type==='person') this.openPersonModal(result.id);
+        if (result.type==='delivery') this.openDeliveryModal(result.id);
+        if (result.type==='opportunity') this.openOpportunityModal(result.id);
+      });
+      panel.appendChild(button);
+    });
   },
 
   go(page, city) {
@@ -310,9 +303,9 @@ const app = {
             <h3 class="font-bold text-slate-800 mb-3">地市业务 TOP3</h3>
             <div class="space-y-3">
               ${topCities.map((c,i)=>`
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer" onclick="app.go('city','${c.name}')">
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer" onclick="app.go('city',${this.jsArg(c.name)})">
                   <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${i===0?'bg-amber-500':i===1?'bg-slate-400':'bg-orange-400'}">${i+1}</div>
-                  <div class="flex-1"><div class="font-semibold">${c.name}</div><div class="text-xs text-slate-500">${c.schoolCount}所学校 · ${c.deliveryCount}个交付 · ${c.opportunityCount}个商机</div></div>
+                  <div class="flex-1"><div class="font-semibold">${this.escapeHTML(c.name)}</div><div class="text-xs text-slate-500">${c.schoolCount}所学校 · ${c.deliveryCount}个交付 · ${c.opportunityCount}个商机</div></div>
                   <div class="font-bold text-slate-700">签约金额 ${c.totalAmount}万</div>
                 </div>
               `).join('')}
@@ -325,7 +318,7 @@ const app = {
         </div>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div class="card p-4"><h3 class="font-bold text-slate-800 mb-3">产品交付类型占比</h3><div id="productChart" class="chart-container"></div></div>
+        <div class="card p-4"><h3 class="font-bold text-slate-800 mb-1">产品交付数量分布</h3><p class="text-xs text-slate-500 mb-3">按各产品填写的数量统计，不同产品的计量单位可能不同。</p><div id="productChart" class="chart-container"></div></div>
         <div class="card p-4"><h3 class="font-bold text-slate-800 mb-3">商机阶段分布</h3><div id="stageChart" class="chart-container"></div></div>
       </div>
     `;
@@ -333,19 +326,21 @@ const app = {
   },
 
   statCard(label,value,icon,borderClass,iconClass){
-    return `<div class="stat-card p-4 ${borderClass}"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500 mb-1">${label}</div><div class="text-2xl font-bold text-slate-800">${value}</div></div><div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl ${iconClass}"><i class="${icon}"></i></div></div></div>`;
+    return `<div class="stat-card p-4 ${borderClass}"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500 mb-1">${this.escapeHTML(label)}</div><div class="text-2xl font-bold text-slate-800">${this.escapeHTML(value)}</div></div><div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl ${iconClass}"><i class="${icon}"></i></div></div></div>`;
   },
 
   renderMap() {
+    const mapElement = document.getElementById('mapContainer');
+    if (!mapElement) return;
     echarts.registerMap('zhejiang', zhejiangGeoJSON);
     const cityStats = this.computeCityStats();
     const data = cityStats.map(c=>({name:c.name,value:c.schoolCount,delivery:c.deliveryCount,opportunity:c.opportunityCount,amount:c.totalAmount,opportunityAmount:c.opportunityAmount}));
-    const chart = echarts.init(document.getElementById('mapContainer'));
+    const chart = echarts.init(mapElement);
     this.charts.map = chart;
     chart.setOption({
       tooltip: {
         trigger: 'item', backgroundColor: 'rgba(255,255,255,0.95)', borderColor: '#e2e8f0', textStyle: { color: '#1e293b' },
-        formatter: p => `<div class="font-bold mb-1">${p.name}</div>
+        formatter: p => `<div class="font-bold mb-1">${this.escapeHTML(p.name)}</div>
           <div class="text-xs space-y-1">
             <div>合作学校: <b>${p.data.value}</b></div>
             <div>在途交付: <b>${p.data.delivery}</b></div>
@@ -367,21 +362,22 @@ const app = {
   renderOverviewChart(stats){
     const el = document.getElementById('overviewChart'); if(!el) return;
     const chart = echarts.init(el); this.charts.overview = chart;
-    chart.setOption({ color: ['#3b82f6','#10b981','#f59e0b'], legend: { bottom: 0 }, series: [{ type: 'pie', radius: ['40%','70%'], avoidLabelOverlap: false, label: { show: false }, data: [{value: stats.schoolCount, name:'合作学校'},{value: stats.deliveryCount, name:'在途交付'},{value: stats.opportunityCount, name:'在途商机'}] }] });
+    chart.setOption({ tooltip:{trigger:'axis',axisPointer:{type:'shadow'}}, grid:{left:85,right:35,top:25,bottom:35}, xAxis:{type:'value',minInterval:1,name:'记录数'}, yAxis:{type:'category',data:['已收录学校（所）','在途交付（项）','在途商机（项）'],axisLabel:{fontSize:10}}, series:[{type:'bar',barWidth:28,label:{show:true,position:'right'},data:[{value:stats.schoolCount,itemStyle:{color:'#3b82f6'}},{value:stats.deliveryCount,itemStyle:{color:'#10b981'}},{value:stats.opportunityCount,itemStyle:{color:'#f59e0b'}}]}] });
   },
 
   renderProductChart(){
     const el = document.getElementById('productChart'); if(!el) return;
-    const counts = {}; this.data.deliveries.forEach(d=>{ d.productTypes.forEach(t=>{ counts[t]=(counts[t]||0)+Object.values(d.quantities||{}).reduce((a,b)=>a+b,0); }); });
+    const counts = this.computeProductQuantities(this.data.deliveries);
     const chart = echarts.init(el); this.charts.product = chart;
-     chart.setOption({ tooltip: { trigger: 'item' }, legend: { bottom: 0, type: 'scroll' }, series: [{ type: 'pie', radius: '60%', data: Object.entries(counts).filter(([k])=>k!=='其他'&&k!=='小G/B-综合解决方案'&&k!=='智慧体育').map(([k,v])=>({name:k,value:v})).sort((a,b)=>b.value-a.value) }] });
+    const products = Object.entries(counts).sort((a,b)=>a[1]-b[1]);
+    chart.setOption({tooltip:{trigger:'axis',renderMode:'richText',axisPointer:{type:'shadow'}},grid:{left:110,right:40,top:20,bottom:35},xAxis:{type:'value',name:'填写数量'},yAxis:{type:'category',data:products.map(([name])=>name),axisLabel:{fontSize:10}},series:[{type:'bar',data:products.map(([,value])=>value),label:{show:true,position:'right'},itemStyle:{color:'#3b82f6',borderRadius:[0,4,4,0]}}]});
   },
 
   renderStageChart(){
     const el = document.getElementById('stageChart'); if(!el) return;
     const counts = {}; this.data.opportunities.forEach(o=>{ counts[o.stage]=(counts[o.stage]||0)+1; });
     const chart = echarts.init(el); this.charts.stage = chart;
-    chart.setOption({ color: ['#94a3b8','#60a5fa','#3b82f6','#f59e0b','#10b981','#ef4444'], tooltip: { trigger: 'item' }, xAxis: { type: 'category', data: OPPORTUNITY_STAGES, axisLabel: { rotate: 30, fontSize: 10 } }, yAxis: { type: 'value' }, series: [{ data: OPPORTUNITY_STAGES.map(s=>counts[s]||0), type: 'bar', barWidth: '60%', itemStyle: { borderRadius: [4,4,0,0] } }] });
+    chart.setOption({ color: ['#94a3b8','#60a5fa','#3b82f6','#f59e0b','#10b981','#059669','#ef4444'], tooltip: { trigger: 'item' }, xAxis: { type: 'category', data: OPPORTUNITY_STAGES, axisLabel: { rotate: 30, fontSize: 10 } }, yAxis: { type: 'value',minInterval:1 }, series: [{ data: OPPORTUNITY_STAGES.map(s=>counts[s]||0), type: 'bar', barWidth: '60%', itemStyle: { borderRadius: [4,4,0,0] } }] });
   },
 
   renderCityDetail(container, city){
@@ -389,27 +385,29 @@ const app = {
     const deliveries = this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId));
     const opportunities = this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId));
     const totalAmount = schools.reduce((a,s)=>a+(+s.totalAmount||0),0);
-    const opportunityAmount = opportunities.reduce((a,o)=>a+(+o.amount||0),0);
+    const activeDeliveries = deliveries.filter(d=>this.isActiveDelivery(d));
+    const activeOpportunities = opportunities.filter(o=>this.isActiveOpportunity(o));
+    const opportunityAmount = +(activeOpportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4);
     container.innerHTML = `
       <div class="mb-4 flex items-center gap-3">
         <button class="btn px-3 py-1.5 rounded-lg bg-slate-100 text-sm" onclick="app.go('home')"><i class="ri-arrow-left-line"></i> 返回全省地图</button>
-        <h3 class="text-lg font-bold">${city}</h3>
+        <h3 class="text-lg font-bold">${this.escapeHTML(city)}</h3>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        ${this.statCard('在途交付', deliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
-        ${this.statCard('在途商机', opportunities.length, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
+        ${this.statCard('在途交付', activeDeliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
+        ${this.statCard('在途商机', activeOpportunities.length, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
         ${this.statCard('在途商机总额', opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('签约金额', totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div class="card p-4"><h3 class="font-bold mb-2">商机阶段分布</h3><div id="cityStageChart" style="height:240px"></div></div>
         <div class="card p-4"><h3 class="font-bold mb-2">交付进度分布</h3><div id="cityProgressChart" style="height:240px"></div></div>
-        <div class="card p-4"><h3 class="font-bold mb-2">产品类型占比</h3><div id="cityProductChart" style="height:240px"></div></div>
+        <div class="card p-4"><h3 class="font-bold mb-1">产品交付数量分布</h3><p class="text-xs text-slate-500 mb-2">按各产品填写数量统计；计量单位可能不同。</p><div id="cityProductChart" style="height:240px"></div></div>
       </div>
       <div class="card p-4">
         <div class="flex items-center justify-between mb-3">
           <h3 class="font-bold">学校列表（${schools.length}所）</h3>
-          <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openSchoolModal(null,'${city}')">+ 新增学校</button>
+          <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openSchoolModal(null,${this.jsArg(city)})">+ 新增学校</button>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm table">
@@ -419,16 +417,16 @@ const app = {
                 const sc = deliveries.filter(d=>d.schoolId===s.id).length;
                 const oc = opportunities.filter(o=>o.schoolId===s.id).length;
                 return `<tr>
-                  <td class="font-medium text-slate-800">${s.name}</td>
-                  <td>${s.schoolType.join('/')}</td>
-                  <td>${s.principal} <span class="text-slate-400 text-xs">${s.principalTitle}</span></td>
-                  <td>${s.phone}</td>
-                  <td class="font-semibold">${s.totalAmount}万</td>
+                  <td class="font-medium text-slate-800">${this.escapeHTML(s.name)}</td>
+                  <td>${this.escapeHTML(s.schoolType.join('/'))}</td>
+                  <td>${this.escapeHTML(s.principal)} <span class="text-slate-400 text-xs">${this.escapeHTML(s.principalTitle)}</span></td>
+                  <td>${this.escapeHTML(s.phone)}</td>
+                  <td class="font-semibold">${this.escapeHTML(s.totalAmount)}万</td>
                   <td><span class="tag bg-emerald-100 text-emerald-700">${sc}</span></td>
                   <td><span class="tag bg-amber-100 text-amber-700">${oc}</span></td>
                   <td>
-                    <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openSchoolModal('${s.id}')">编辑</button>
-                    <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteSchool('${s.id}')">删除</button>
+                    <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openSchoolModal(${this.jsArg(s.id)})">编辑</button>
+                    <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteSchool(${this.jsArg(s.id)})">删除</button>
                   </td>
                 </tr>`;
               }).join('')}
@@ -437,7 +435,9 @@ const app = {
         </div>
       </div>
     `;
+    const cityStageElement = document.getElementById('cityStageChart');
     setTimeout(()=>{
+      if (!cityStageElement?.isConnected) return;
       const sc = echarts.init(document.getElementById('cityStageChart'));
       const stageCounts = {}; opportunities.forEach(o=>stageCounts[o.stage]=(stageCounts[o.stage]||0)+1);
       sc.setOption({ xAxis:{type:'category',data:OPPORTUNITY_STAGES,axisLabel:{rotate:30,fontSize:10}}, yAxis:{type:'value'}, series:[{type:'bar',data:OPPORTUNITY_STAGES.map(s=>stageCounts[s]||0),itemStyle:{borderRadius:[4,4,0,0]}}] });
@@ -445,15 +445,34 @@ const app = {
       const progCounts = {}; deliveries.forEach(d=>progCounts[d.progress]=(progCounts[d.progress]||0)+1);
       pc.setOption({ xAxis:{type:'category',data:DELIVERY_PROGRESS,axisLabel:{fontSize:10}}, yAxis:{type:'value'}, series:[{type:'bar',data:DELIVERY_PROGRESS.map(s=>progCounts[s]||0),itemStyle:{color:'#10b981',borderRadius:[4,4,0,0]}}] });
       const prc = echarts.init(document.getElementById('cityProductChart'));
-      const prodCounts = {}; deliveries.forEach(d=>d.productTypes.forEach(t=>prodCounts[t]=(prodCounts[t]||0)+1));
-      prc.setOption({ series:[{type:'pie',radius:'60%',data:Object.entries(prodCounts).filter(([k])=>k!=='小G/B-综合解决方案'&&k!=='智慧体育').map(([k,v])=>({name:k,value:v}))}] });
+      const products = Object.entries(this.computeProductQuantities(deliveries)).sort((a,b)=>a[1]-b[1]);
+      prc.setOption({tooltip:{trigger:'axis',renderMode:'richText'},grid:{left:105,right:35,top:10,bottom:25},xAxis:{type:'value'},yAxis:{type:'category',data:products.map(([name])=>name),axisLabel:{fontSize:10}},series:[{type:'bar',data:products.map(([,value])=>value),label:{show:true,position:'right'},itemStyle:{color:'#3b82f6'}}]});
       window.addEventListener('resize',()=>{sc.resize();pc.resize();prc.resize();});
     },0);
   },
 
+  captureListFilters(type){
+    const ids = {schools:['filterCity','filterType','filterKeyword'],deliveries:['filterDProgress','filterDKw'],opportunities:['filterOStage','filterOKw'],persons:['filterPRole','filterPStatus','filterPKw']}[type] || [];
+    const state = this.listFilters[type] || (this.listFilters[type]={});
+    ids.forEach(id => { const el=document.getElementById(id); if(el) state[id]=el.value; });
+  },
+  filterValue(type,id){ return this.listFilters[type]?.[id] || ''; },
+  applyListMarkup(container,type,html){
+    const current = container.querySelector(`[data-list-type="${type}"]`);
+    if (current) {
+      // 筛选时只更新表格行，保留输入框、焦点和输入法状态。
+      const template = document.createElement('template'); template.innerHTML=html;
+      current.querySelector('tbody').innerHTML=template.content.querySelector('tbody').innerHTML;
+    } else {
+      container.innerHTML=html;
+      Object.entries(this.listFilters[type]||{}).forEach(([id,value])=>{const el=document.getElementById(id);if(el) el.value=value;});
+    }
+  },
+
   renderSchoolList(container){
-    container.innerHTML = `
-      <div class="card p-4">
+    this.captureListFilters('schools');
+    const html = `
+      <div class="card p-4" data-list-type="schools">
         <div class="flex flex-wrap items-center gap-3 mb-4">
           <select id="filterCity" class="form-input w-40 text-sm" onchange="app.renderSchoolList(document.getElementById('pageContent'))"><option value="">所有地市</option>${CITIES.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
           <select id="filterType" class="form-input w-40 text-sm" onchange="app.renderSchoolList(document.getElementById('pageContent'))"><option value="">所有类型</option>${SCHOOL_TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
@@ -470,17 +489,17 @@ const app = {
                 const dc = this.data.deliveries.filter(d=>d.schoolId===s.id).length;
                 const oc = this.data.opportunities.filter(o=>o.schoolId===s.id).length;
                 return `<tr>
-                  <td class="font-medium">${s.name}</td>
-                  <td>${s.city} · ${s.district}</td>
-                  <td>${s.schoolType.join('/')}</td>
-                  <td>${s.principal}</td>
-                  <td>${s.phone}</td>
-                  <td class="font-semibold">${s.totalAmount}万</td>
+                  <td class="font-medium">${this.escapeHTML(s.name)}</td>
+                  <td>${this.escapeHTML(s.city)} · ${this.escapeHTML(s.district)}</td>
+                  <td>${this.escapeHTML(s.schoolType.join('/'))}</td>
+                  <td>${this.escapeHTML(s.principal)}</td>
+                  <td>${this.escapeHTML(s.phone)}</td>
+                  <td class="font-semibold">${this.escapeHTML(s.totalAmount)}万</td>
                   <td><span class="tag bg-emerald-100 text-emerald-700">${dc}</span></td>
                   <td><span class="tag bg-amber-100 text-amber-700">${oc}</span></td>
                   <td>
-                    <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openSchoolModal('${s.id}')">编辑</button>
-                    <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteSchool('${s.id}')">删除</button>
+                    <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openSchoolModal(${this.jsArg(s.id)})">编辑</button>
+                    <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteSchool(${this.jsArg(s.id)})">删除</button>
                   </td>
                 </tr>`;
               }).join('')}
@@ -489,12 +508,13 @@ const app = {
         </div>
       </div>
     `;
+    this.applyListMarkup(container,'schools',html);
   },
 
   getFilteredSchools(){
-    const city = document.getElementById('filterCity')?.value || '';
-    const type = document.getElementById('filterType')?.value || '';
-    const kw = (document.getElementById('filterKeyword')?.value || '').trim();
+    const city = this.filterValue('schools','filterCity');
+    const type = this.filterValue('schools','filterType');
+    const kw = this.filterValue('schools','filterKeyword').trim();
     return this.data.schools.filter(s=>{
       if (city && s.city!==city) return false;
       if (type && !s.schoolType.includes(type)) return false;
@@ -504,8 +524,9 @@ const app = {
   },
 
   renderDeliveryList(container){
-    container.innerHTML = `
-      <div class="card p-4">
+    this.captureListFilters('deliveries');
+    const html = `
+      <div class="card p-4" data-list-type="deliveries">
         <div class="flex flex-wrap items-center gap-3 mb-4">
           <select id="filterDProgress" class="form-input w-40 text-sm" onchange="app.renderDeliveryList(document.getElementById('pageContent'))"><option value="">所有进度</option>${DELIVERY_PROGRESS.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
           <input id="filterDKw" type="text" placeholder="搜索项目/学校" class="form-input w-56 text-sm" oninput="app.renderDeliveryList(document.getElementById('pageContent'))">
@@ -516,18 +537,18 @@ const app = {
           <table class="w-full text-sm table"><thead><tr><th>项目名称</th><th>学校</th><th>产品类型</th><th>数量</th><th>进度</th><th>负责人</th><th>计划交付</th><th>操作</th></tr></thead><tbody>
             ${this.getFilteredDeliveries().map(d=>{
               const school = this.data.schools.find(s=>s.id===d.schoolId);
-              const totalQty = Object.values(d.quantities||{}).reduce((a,b)=>a+b,0);
+              const totalQty = Object.values(d.quantities||{}).reduce((a,b)=>a+(Number(b)||0),0);
               return `<tr>
-                <td class="font-medium">${d.name}</td>
-                <td>${school?school.name:'-'}</td>
-                <td>${d.productTypes.join('/')}</td>
+                <td class="font-medium">${this.escapeHTML(d.name)}</td>
+                <td>${this.escapeHTML(school?school.name:'-')}</td>
+                <td>${this.escapeHTML(d.productTypes.join('/'))}</td>
                 <td>${totalQty}</td>
                 <td>${this.progressBadge(d.progress)}</td>
-                <td>${this.personName(d.managerId)}</td>
-                <td>${d.planDate}</td>
+                <td>${this.escapeHTML(this.personName(d.managerId))}</td>
+                <td>${this.escapeHTML(d.planDate)}</td>
                 <td>
-                  <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openDeliveryModal('${d.id}')">编辑</button>
-                  <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteDelivery('${d.id}')">删除</button>
+                  <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openDeliveryModal(${this.jsArg(d.id)})">编辑</button>
+                  <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteDelivery(${this.jsArg(d.id)})">删除</button>
                 </td>
               </tr>`;
             }).join('')}
@@ -535,11 +556,12 @@ const app = {
         </div>
       </div>
     `;
+    this.applyListMarkup(container,'deliveries',html);
   },
 
   getFilteredDeliveries(){
-    const p = document.getElementById('filterDProgress')?.value||'';
-    const kw = (document.getElementById('filterDKw')?.value||'').trim();
+    const p = this.filterValue('deliveries','filterDProgress');
+    const kw = this.filterValue('deliveries','filterDKw').trim();
     return this.data.deliveries.filter(d=>{
       if (p && d.progress!==p) return false;
       if (kw) { const s = this.data.schools.find(x=>x.id===d.schoolId); if (!d.name.includes(kw) && !(s&&s.name.includes(kw))) return false; }
@@ -549,12 +571,13 @@ const app = {
 
   progressBadge(p){
     const colors = {'未启动':'bg-slate-100 text-slate-600','部署中':'bg-blue-100 text-blue-700','已部署':'bg-indigo-100 text-indigo-700','待验收':'bg-amber-100 text-amber-700','已完成':'bg-emerald-100 text-emerald-700'};
-    return `<span class="tag ${colors[p]||'bg-slate-100'}">${p}</span>`;
+    return `<span class="tag ${colors[p]||'bg-slate-100'}">${this.escapeHTML(p)}</span>`;
   },
 
   renderOpportunityList(container){
-    container.innerHTML = `
-      <div class="card p-4">
+    this.captureListFilters('opportunities');
+    const html = `
+      <div class="card p-4" data-list-type="opportunities">
         <div class="flex flex-wrap items-center gap-3 mb-4">
           <select id="filterOStage" class="form-input w-40 text-sm" onchange="app.renderOpportunityList(document.getElementById('pageContent'))"><option value="">所有阶段</option>${OPPORTUNITY_STAGES.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
           <input id="filterOKw" type="text" placeholder="搜索商机/学校" class="form-input w-56 text-sm" oninput="app.renderOpportunityList(document.getElementById('pageContent'))">
@@ -566,16 +589,16 @@ const app = {
             ${this.getFilteredOpportunities().map(o=>{
               const school = this.data.schools.find(s=>s.id===o.schoolId);
               return `<tr>
-                <td class="font-medium">${o.name}</td>
-                <td>${school?school.name:'-'}</td>
+                <td class="font-medium">${this.escapeHTML(o.name)}</td>
+                <td>${this.escapeHTML(school?school.name:'-')}</td>
                 <td>${this.stageBadge(o.stage)}</td>
-                <td>${o.products.join('/')}</td>
-                <td class="font-semibold">${o.amount}万</td>
-                <td>${o.signDate}</td>
-                <td>${this.personName(o.salesId)}</td>
+                <td>${this.escapeHTML(o.products.join('/'))}</td>
+                <td class="font-semibold">${this.escapeHTML(o.amount)}万</td>
+                <td>${this.escapeHTML(o.signDate)}</td>
+                <td>${this.escapeHTML(this.personName(o.salesId))}</td>
                 <td>
-                  <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openOpportunityModal('${o.id}')">编辑</button>
-                  <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteOpportunity('${o.id}')">删除</button>
+                  <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openOpportunityModal(${this.jsArg(o.id)})">编辑</button>
+                  <button class="text-rose-600 hover:underline text-xs" onclick="app.deleteOpportunity(${this.jsArg(o.id)})">删除</button>
                 </td>
               </tr>`;
             }).join('')}
@@ -583,11 +606,12 @@ const app = {
         </div>
       </div>
     `;
+    this.applyListMarkup(container,'opportunities',html);
   },
 
   getFilteredOpportunities(){
-    const st = document.getElementById('filterOStage')?.value||'';
-    const kw = (document.getElementById('filterOKw')?.value||'').trim();
+    const st = this.filterValue('opportunities','filterOStage');
+    const kw = this.filterValue('opportunities','filterOKw').trim();
     return this.data.opportunities.filter(o=>{
       if (st && o.stage!==st) return false;
       if (kw) { const s = this.data.schools.find(x=>x.id===o.schoolId); if (!o.name.includes(kw) && !(s&&s.name.includes(kw))) return false; }
@@ -596,35 +620,53 @@ const app = {
   },
 
   stageBadge(s){
-    const colors = {'初步接触':'bg-slate-100 text-slate-600','需求对接':'bg-blue-100 text-blue-700','方案输出':'bg-indigo-100 text-indigo-700','招投标':'bg-amber-100 text-amber-700','意向签约':'bg-emerald-100 text-emerald-700','已流失':'bg-rose-100 text-rose-700'};
-    return `<span class="tag ${colors[s]||'bg-slate-100'}">${s}</span>`;
+    const colors = {'初步接触':'bg-slate-100 text-slate-600','需求对接':'bg-blue-100 text-blue-700','方案输出':'bg-indigo-100 text-indigo-700','招投标':'bg-amber-100 text-amber-700','意向签约':'bg-emerald-100 text-emerald-700','已赢单':'bg-emerald-100 text-emerald-700','已流失':'bg-rose-100 text-rose-700'};
+    return `<span class="tag ${colors[s]||'bg-slate-100'}">${this.escapeHTML(s)}</span>`;
   },
 
   renderPersonList(container){
-    container.innerHTML = `
-      <div class="card p-4">
+    this.captureListFilters('persons');
+    const html = `
+      <div class="card p-4" data-list-type="persons">
         <div class="flex items-center justify-between mb-4"><h3 class="font-bold">人员责任管理</h3><button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openPersonModal()">+ 新增人员</button></div>
+        <div class="flex flex-wrap gap-3 mb-4">
+          <select id="filterPRole" class="form-input w-40 text-sm" onchange="app.renderPersonList(document.getElementById('pageContent'))"><option value="">所有角色</option>${ROLES.map(role=>`<option value="${role}">${role}</option>`).join('')}</select>
+          <select id="filterPStatus" class="form-input w-40 text-sm" onchange="app.renderPersonList(document.getElementById('pageContent'))"><option value="">所有状态</option>${PERSON_STATUS.map(status=>`<option value="${status}">${status}</option>`).join('')}</select>
+          <input id="filterPKw" type="text" placeholder="搜索姓名/地市/电话" class="form-input w-56 text-sm" oninput="app.renderPersonList(document.getElementById('pageContent'))">
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm table"><thead><tr><th>姓名</th><th>角色</th><th>负责地市</th><th>负责学校</th><th>联系电话</th><th>状态</th><th>操作</th></tr></thead><tbody>
-            ${this.data.persons.map(p=>`<tr>
-              <td class="font-medium">${p.name}</td>
-              <td><span class="tag bg-blue-100 text-blue-700">${p.role}</span></td>
-              <td>${p.cities.join('/')}</td>
+            ${this.getFilteredPersons().map(p=>`<tr>
+              <td class="font-medium">${this.escapeHTML(p.name)}</td>
+              <td><span class="tag bg-blue-100 text-blue-700">${this.escapeHTML(p.role)}</span></td>
+              <td>${this.escapeHTML(p.cities.join('/'))}</td>
               <td>${p.schoolIds.length}所</td>
-              <td>${p.phone}</td>
-              <td>${p.status}</td>
+              <td>${this.escapeHTML(p.phone)}</td>
+              <td>${this.escapeHTML(p.status)}</td>
               <td>
-                <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openPersonModal('${p.id}')">编辑</button>
-                <button class="text-rose-600 hover:underline text-xs" onclick="app.deletePerson('${p.id}')">删除</button>
+                <button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.openPersonModal(${this.jsArg(p.id)})">编辑</button>
+                <button class="text-rose-600 hover:underline text-xs" onclick="app.deletePerson(${this.jsArg(p.id)})">删除</button>
               </td>
             </tr>`).join('')}
           </tbody></table>
         </div>
       </div>
     `;
+    this.applyListMarkup(container,'persons',html);
   },
 
   personName(id){ const p=this.data.persons.find(x=>x.id===id); return p?p.name:(id||'未分配'); },
+
+  getFilteredPersons(){
+    const role=this.filterValue('persons','filterPRole');
+    const status=this.filterValue('persons','filterPStatus');
+    const kw=this.filterValue('persons','filterPKw').trim().toLowerCase();
+    return this.data.persons.filter(p=>{
+      if(role&&p.role!==role) return false;
+      if(status&&p.status!==status) return false;
+      return !kw || [p.name,p.phone,...(p.cities||[])].some(v=>String(v||'').toLowerCase().includes(kw));
+    });
+  },
 
   renderDataPage(container){
     container.innerHTML = `
@@ -672,8 +714,32 @@ const app = {
 
   dataLabel(k){ return {schools:'学校档案',deliveries:'交付项目',opportunities:'在途商机',persons:'人员责任',stakeholders:'核心干系人'}[k]; },
 
-  computeProvinceStats(){ return { schoolCount: this.data.schools.length, deliveryCount: this.data.deliveries.length, opportunityCount: this.data.opportunities.length, totalAmount: +(this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4), opportunityAmount: +(this.data.opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4) }; },
-  computeCityStats(){ return CITIES.map(city=>{ const schools=this.data.schools.filter(s=>s.city===city); const deliveries=this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId)); const opportunities=this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId)); return { name:city, schoolCount:schools.length, deliveryCount:deliveries.length, opportunityCount:opportunities.length, totalAmount:+(schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4), opportunityAmount:+(opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4) }; }); },
+  isActiveDelivery(d){ return !['已完成','已取消'].includes(String(d.progress||'').trim()); },
+  isActiveOpportunity(o){ return !['已流失','已赢单','已签约','已成交'].includes(String(o.stage||'').trim()); },
+  computeProductQuantities(deliveries){
+    const counts = Object.create(null);
+    deliveries.forEach(d => {
+      Object.entries(d.quantities||{}).forEach(([product,value]) => {
+        const quantity = Number(value);
+        if (Number.isFinite(quantity) && quantity>0) counts[product] = (counts[product]||0)+quantity;
+      });
+    });
+    return counts;
+  },
+  computeProvinceStats(){
+    const deliveries = this.data.deliveries.filter(d=>this.isActiveDelivery(d));
+    const opportunities = this.data.opportunities.filter(o=>this.isActiveOpportunity(o));
+    return {schoolCount:this.data.schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:+(this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4),opportunityAmount:+(opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4)};
+  },
+  computeCityStats(){
+    return CITIES.map(city=>{
+      const schools = this.data.schools.filter(s=>s.city===city);
+      const ids = new Set(schools.map(s=>s.id));
+      const deliveries = this.data.deliveries.filter(d=>ids.has(d.schoolId)&&this.isActiveDelivery(d));
+      const opportunities = this.data.opportunities.filter(o=>ids.has(o.schoolId)&&this.isActiveOpportunity(o));
+      return {name:city,schoolCount:schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:+(schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4),opportunityAmount:+(opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4)};
+    });
+  },
 
   openModal(html){ const overlay=document.getElementById('modalOverlay'); const content=document.getElementById('modalContent'); content.innerHTML=html; overlay.classList.remove('hidden'); this.modalStack.push(content); },
   closeModal(){ document.getElementById('modalOverlay').classList.add('hidden'); document.getElementById('modalContent').innerHTML=''; this.modalStack=[]; },
@@ -688,7 +754,7 @@ const app = {
 
     this.openModal(`
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl">
-        <h3 class="font-bold text-lg">${isNew?'新增学校':'编辑学校'} · ${s.name||'未命名'}</h3>
+        <h3 class="font-bold text-lg">${isNew?'新增学校':'编辑学校'} · ${this.escapeHTML(s.name||'未命名')}</h3>
         <button class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button>
       </div>
       <div class="flex-1 overflow-auto p-6">
@@ -698,50 +764,50 @@ const app = {
           <div class="tab" data-tab="opportunity" onclick="app.switchTab(this,'opportunity')">在途商机 (${opportunities.length})</div>
           <div class="tab" data-tab="stakeholder" onclick="app.switchTab(this,'stakeholder')">干系人 (${stakeholders.length})</div>
         </div>
-        <form id="schoolForm" onsubmit="event.preventDefault(); app.saveSchool('${s.id}');">
+        <form id="schoolForm" onsubmit="event.preventDefault(); app.saveSchool(${this.jsArg(s.id)});">
           <div id="tab-basic" class="tab-panel">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="md:col-span-2"><label class="form-label">学校名称 <span class="text-rose-500">*</span></label><input name="name" class="form-input" value="${s.name}" required></div>
-              <div><label class="form-label">所在地市</label><select name="city" class="form-select">${CITIES.map(c=>`<option value="${c}" ${s.city===c?'selected':''}>${c}</option>`).join('')}</select></div>
-              <div><label class="form-label">区县</label><input name="district" class="form-input" value="${s.district}"></div>
-              <div class="md:col-span-2"><label class="form-label">办学类型</label><div class="flex flex-wrap gap-3">${SCHOOL_TYPES.map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="schoolType" value="${t}" ${s.schoolType.includes(t)?'checked':''}> ${t}</label>`).join('')}</div></div>
-              <div><label class="form-label">学校负责人</label><input name="principal" class="form-input" value="${s.principal}"></div>
-              <div><label class="form-label">负责人职务</label><input name="principalTitle" class="form-input" value="${s.principalTitle}"></div>
-              <div><label class="form-label">核心对接老师</label><input name="contact" class="form-input" value="${s.contact}"></div>
-              <div><label class="form-label">对接人职务</label><input name="contactTitle" class="form-input" value="${s.contactTitle}"></div>
-              <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${s.phone}" pattern="1[3-9]\\d{9}" title="11位手机号"></div>
-              <div><label class="form-label">微信/邮箱</label><input name="wechatEmail" class="form-input" value="${s.wechatEmail}"></div>
-              <div><label class="form-label">合作签约时间</label><input name="signDate" type="date" class="form-input" value="${s.signDate}"></div>
-              <div><label class="form-label">项目总签约金额（万元）</label><input name="totalAmount" type="number" class="form-input" value="${s.totalAmount}"></div>
-              <div class="md:col-span-2"><label class="form-label">备注</label><textarea name="remark" class="form-textarea" rows="3">${s.remark}</textarea></div>
+              <div class="md:col-span-2"><label class="form-label">学校名称 <span class="text-rose-500">*</span></label><input name="name" class="form-input" value="${this.escapeHTML(s.name)}" required></div>
+              <div><label class="form-label">所在地市</label><select name="city" class="form-select">${this.optionsFor(CITIES,s.city).map(c=>`<option value="${this.escapeHTML(c)}" ${s.city===c?'selected':''}>${this.escapeHTML(c)}</option>`).join('')}</select></div>
+              <div><label class="form-label">区县</label><input name="district" class="form-input" value="${this.escapeHTML(s.district)}"></div>
+              <div class="md:col-span-2"><label class="form-label">办学类型</label><div class="flex flex-wrap gap-3">${this.optionsFor(SCHOOL_TYPES,s.schoolType).map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="schoolType" value="${this.escapeHTML(t)}" ${s.schoolType.includes(t)?'checked':''}> ${this.escapeHTML(t)}</label>`).join('')}</div></div>
+              <div><label class="form-label">学校负责人</label><input name="principal" class="form-input" value="${this.escapeHTML(s.principal)}"></div>
+              <div><label class="form-label">负责人职务</label><input name="principalTitle" class="form-input" value="${this.escapeHTML(s.principalTitle)}"></div>
+              <div><label class="form-label">核心对接老师</label><input name="contact" class="form-input" value="${this.escapeHTML(s.contact)}"></div>
+              <div><label class="form-label">对接人职务</label><input name="contactTitle" class="form-input" value="${this.escapeHTML(s.contactTitle)}"></div>
+              <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${this.escapeHTML(s.phone)}" pattern="1[3-9]\\d{9}" title="11位手机号"></div>
+              <div><label class="form-label">微信/邮箱</label><input name="wechatEmail" class="form-input" value="${this.escapeHTML(s.wechatEmail)}"></div>
+              <div><label class="form-label">合作签约时间</label><input name="signDate" type="date" class="form-input" value="${this.escapeHTML(this.dateInputValue(s.signDate))}"></div>
+              <div><label class="form-label">项目总签约金额（万元）</label><input name="totalAmount" type="number" class="form-input" value="${this.escapeHTML(s.totalAmount)}"></div>
+              <div class="md:col-span-2"><label class="form-label">备注</label><textarea name="remark" class="form-textarea" rows="3">${this.escapeHTML(s.remark)}</textarea></div>
             </div>
           </div>
           <div id="tab-delivery" class="tab-panel hidden">
-            <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">交付项目</h4><button type="button" class="btn text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg" onclick="app.openDeliveryModalForSchool('${s.id}')">+ 新增交付</button></div>
+            <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">交付项目</h4><button type="button" class="btn text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg" onclick="app.openDeliveryModalForSchool(${this.jsArg(s.id)})">+ 新增交付</button></div>
             <div class="space-y-3">${deliveries.map(d=>this.deliveryCard(d)).join('')}</div>
           </div>
           <div id="tab-opportunity" class="tab-panel hidden">
-            <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">在途商机</h4><button type="button" class="btn text-sm bg-amber-500 text-white px-3 py-1.5 rounded-lg" onclick="app.openOpportunityModalForSchool('${s.id}')">+ 新增商机</button></div>
+            <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">在途商机</h4><button type="button" class="btn text-sm bg-amber-500 text-white px-3 py-1.5 rounded-lg" onclick="app.openOpportunityModalForSchool(${this.jsArg(s.id)})">+ 新增商机</button></div>
             <div class="space-y-3">${opportunities.map(o=>this.opportunityCard(o)).join('')}</div>
           </div>
           <div id="tab-stakeholder" class="tab-panel hidden">
-            <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">核心干系人</h4><button type="button" class="btn text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg" onclick="app.editStakeholder('','${s.id}')">+ 新增干系人</button></div>
+            <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">核心干系人</h4><button type="button" class="btn text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg" onclick="app.editStakeholder('',${this.jsArg(s.id)})">+ 新增干系人</button></div>
             <div class="space-y-3">${stakeholders.map(st=>this.stakeholderCard(st)).join('')}</div>
           </div>
         </form>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
         <button type="button" class="btn px-4 py-2 rounded-lg text-sm border border-slate-300" onclick="app.closeModal()">取消</button>
-        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveSchool('${s.id}')">保存</button>
+        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveSchool(${this.jsArg(s.id)})">保存</button>
       </div>
     `);
   },
 
   switchTab(el, tab){ el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); document.getElementById('tab-'+tab).classList.remove('hidden'); },
 
-  deliveryCard(d){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${d.name}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openDeliveryModal('${d.id}')">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteDelivery('${d.id}')">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>产品: ${d.productTypes.join('/')}</span><span>进度: ${d.progress}</span><span>计划: ${d.planDate}</span></div></div>`; },
-  opportunityCard(o){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${o.name}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openOpportunityModal('${o.id}')">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteOpportunity('${o.id}')">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>阶段: ${o.stage}</span><span>产品: ${o.products.join('/')}</span><span>预计: ${o.amount}万 / ${o.signDate}</span></div></div>`; },
-  stakeholderCard(st){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${st.name} <span class="text-xs text-slate-500">${st.title}</span></div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.editStakeholder('${st.id}')">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteStakeholder('${st.id}')">删除</button></div></div><div class="text-xs text-slate-500 mt-1">类型: ${st.type} · 电话: ${st.phone}</div></div>`; },
+  deliveryCard(d){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(d.name)}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openDeliveryModal(${this.jsArg(d.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteDelivery(${this.jsArg(d.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>产品: ${this.escapeHTML(d.productTypes.join('/'))}</span><span>进度: ${this.escapeHTML(d.progress)}</span><span>计划: ${this.escapeHTML(d.planDate)}</span></div></div>`; },
+  opportunityCard(o){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(o.name)}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openOpportunityModal(${this.jsArg(o.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteOpportunity(${this.jsArg(o.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>阶段: ${this.escapeHTML(o.stage)}</span><span>产品: ${this.escapeHTML(o.products.join('/'))}</span><span>预计: ${this.escapeHTML(o.amount)}万 / ${this.escapeHTML(o.signDate)}</span></div></div>`; },
+  stakeholderCard(st){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(st.name)} <span class="text-xs text-slate-500">${this.escapeHTML(st.title)}</span></div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.editStakeholder(${this.jsArg(st.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteStakeholder(${this.jsArg(st.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1">类型: ${this.escapeHTML(st.type)} · 电话: ${this.escapeHTML(st.phone)}</div></div>`; },
 
   saveSchool(id){
     const form = document.getElementById('schoolForm'); const fd = new FormData(form);
@@ -766,31 +832,34 @@ const app = {
   openDeliveryModalForSchool(schoolId){ this.editDeliveryModal(null, schoolId); },
   editDeliveryModal(d, schoolId){
     const isNew=!d; const data=d||{id:'D'+Date.now(), schoolId, name:'', productTypes:[], quantities:{}, deployLocation:'', progress:'未启动', managerId:'', planDate:'', actualDate:'', remark:''};
+    const productOptions = [...new Set([...PRODUCT_TYPES,...(data.productTypes||[]),...Object.keys(data.quantities||{})])];
+    const owners = this.data.persons.filter(p=>p.role==='交付人员'||p.role==='服务人员');
     this.openModal(`
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl"><h3 class="font-bold text-lg">${isNew?'新增交付':'编辑交付'}</h3><button class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button></div>
       <div class="p-6 overflow-auto">
         <form id="deliveryForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="md:col-span-2"><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${s.id}" ${data.schoolId===s.id?'selected':''}>${s.name}</option>`).join('')}</select></div>
-          <div class="md:col-span-2"><label class="form-label">交付项目名称</label><input name="name" class="form-input" value="${data.name}" required></div>
-          <div class="md:col-span-2"><label class="form-label">交付产品类型</label><div class="flex flex-wrap gap-3">${PRODUCT_TYPES.map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="productTypes" value="${t}" ${data.productTypes.includes(t)?'checked':''}> ${t}</label>`).join('')}</div></div>
-          <div class="md:col-span-2" id="qtyInputs"><label class="form-label">产品数量</label><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${PRODUCT_TYPES.map(t=>`<div class="${data.productTypes.includes(t)?'':'hidden'}"><label class="text-xs text-slate-500">${t}</label><input type="number" class="form-input qty-input" data-type="${t}" value="${data.quantities[t]||0}"></div>`).join('')}</div></div>
-          <div class="md:col-span-2"><label class="form-label">部署位置</label><input name="deployLocation" class="form-input" value="${data.deployLocation}"></div>
-          <div><label class="form-label">交付进度</label><select name="progress" class="form-select">${DELIVERY_PROGRESS.map(p=>`<option value="${p}" ${data.progress===p?'selected':''}>${p}</option>`).join('')}</select></div>
-          <div><label class="form-label">交付负责人</label><select name="managerId" class="form-select"><option value="">请选择</option>${this.data.persons.filter(p=>p.role==='交付人员'||p.role==='服务人员').map(p=>`<option value="${p.id}" ${data.managerId===p.id?'selected':''}>${p.name}</option>`).join('')}</select></div>
-          <div><label class="form-label">计划交付时间</label><input name="planDate" type="date" class="form-input" value="${data.planDate}"></div>
-          <div><label class="form-label">实际交付时间</label><input name="actualDate" type="date" class="form-input" value="${data.actualDate}"></div>
-          <div class="md:col-span-2"><label class="form-label">交付备注</label><textarea name="remark" class="form-textarea" rows="3">${data.remark}</textarea></div>
+          <div class="md:col-span-2"><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${this.escapeHTML(s.id)}" ${data.schoolId===s.id?'selected':''}>${this.escapeHTML(s.name)}</option>`).join('')}</select></div>
+          <div class="md:col-span-2"><label class="form-label">交付项目名称</label><input name="name" class="form-input" value="${this.escapeHTML(data.name)}" required></div>
+          <div class="md:col-span-2"><label class="form-label">交付产品类型</label><div class="flex flex-wrap gap-3">${productOptions.map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="productTypes" value="${this.escapeHTML(t)}" ${data.productTypes.includes(t)?'checked':''}> ${this.escapeHTML(t)}</label>`).join('')}</div></div>
+          <div class="md:col-span-2" id="qtyInputs"><label class="form-label">产品数量</label><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${productOptions.map(t=>`<div class="${data.productTypes.includes(t)?'':'hidden'}"><label class="text-xs text-slate-500">${this.escapeHTML(t)}</label><input type="number" class="form-input qty-input" data-type="${this.escapeHTML(t)}" value="${this.escapeHTML(data.quantities[t]||0)}"></div>`).join('')}</div></div>
+          <div class="md:col-span-2"><label class="form-label">部署位置</label><input name="deployLocation" class="form-input" value="${this.escapeHTML(data.deployLocation)}"></div>
+          <div><label class="form-label">交付进度</label><select name="progress" class="form-select">${this.optionsFor(DELIVERY_PROGRESS,data.progress).map(p=>`<option value="${this.escapeHTML(p)}" ${data.progress===p?'selected':''}>${this.escapeHTML(p)}</option>`).join('')}</select></div>
+          <div><label class="form-label">交付负责人</label><select name="managerId" class="form-select"><option value="">请选择</option>${data.managerId&&!owners.some(p=>p.id===data.managerId||p.name===data.managerId)?`<option value="${this.escapeHTML(data.managerId)}" selected>${this.escapeHTML(this.personName(data.managerId))}（原记录）</option>`:''}${owners.map(p=>`<option value="${this.escapeHTML(p.id)}" ${data.managerId===p.id||data.managerId===p.name?'selected':''}>${this.escapeHTML(p.name)}</option>`).join('')}</select></div>
+          <div><label class="form-label">计划交付时间</label><input name="planDate" type="date" class="form-input" value="${this.escapeHTML(this.dateInputValue(data.planDate))}"></div>
+          <div><label class="form-label">实际交付时间</label><input name="actualDate" type="date" class="form-input" value="${this.escapeHTML(this.dateInputValue(data.actualDate))}"></div>
+          <div class="md:col-span-2"><label class="form-label">交付备注</label><textarea name="remark" class="form-textarea" rows="3">${this.escapeHTML(data.remark)}</textarea></div>
         </form>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
         <button type="button" class="btn px-4 py-2 rounded-lg text-sm border border-slate-300" onclick="app.closeModal()">取消</button>
-        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveDelivery('${data.id}')">保存</button>
+        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveDelivery(${this.jsArg(data.id)})">保存</button>
       </div>
     `);
     setTimeout(()=>{
       document.querySelectorAll('input[name="productTypes"]').forEach(cb=>{
         cb.addEventListener('change', ()=>{
-          const div = document.querySelector(`.qty-input[data-type="${cb.value}"]`).closest('div');
+          const input = Array.from(document.querySelectorAll('.qty-input')).find(input=>input.dataset.type===cb.value);
+          const div = input?.closest('div'); if(!div) return;
           div.classList.toggle('hidden', !cb.checked);
         });
       });
@@ -811,25 +880,27 @@ const app = {
   openOpportunityModalForSchool(schoolId){ this.editOpportunityModal(null, schoolId); },
   editOpportunityModal(o, schoolId){
     const isNew=!o; const data=o||{id:'O'+Date.now(),schoolId,name:'',stage:'初步接触',products:[],amount:0,signDate:'',salesId:'',milestones:'',risks:'',remark:''};
+    const productOptions = [...new Set([...PRODUCT_TYPES,...(data.products||[])])];
+    const owners = this.data.persons.filter(p=>p.role==='驻点销售'||p.role==='区域负责人');
     this.openModal(`
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl"><h3 class="font-bold text-lg">${isNew?'新增商机':'编辑商机'}</h3><button class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button></div>
       <div class="p-6 overflow-auto">
         <form id="opportunityForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="md:col-span-2"><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${s.id}" ${data.schoolId===s.id?'selected':''}>${s.name}</option>`).join('')}</select></div>
-          <div class="md:col-span-2"><label class="form-label">商机名称</label><input name="name" class="form-input" value="${data.name}" required></div>
-          <div><label class="form-label">商机阶段</label><select name="stage" class="form-select">${OPPORTUNITY_STAGES.map(p=>`<option value="${p}" ${data.stage===p?'selected':''}>${p}</option>`).join('')}</select></div>
-          <div><label class="form-label">预计签约金额（万元）</label><input name="amount" type="number" class="form-input" value="${data.amount}"></div>
-          <div><label class="form-label">预计签约时间</label><input name="signDate" type="date" class="form-input" value="${data.signDate}"></div>
-          <div><label class="form-label">销售负责人</label><select name="salesId" class="form-select"><option value="">请选择</option>${this.data.persons.filter(p=>p.role==='驻点销售'||p.role==='区域负责人').map(p=>`<option value="${p.id}" ${data.salesId===p.id?'selected':''}>${p.name}</option>`).join('')}</select></div>
-          <div class="md:col-span-2"><label class="form-label">意向产品</label><div class="flex flex-wrap gap-3">${PRODUCT_TYPES.map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="products" value="${t}" ${data.products.includes(t)?'checked':''}> ${t}</label>`).join('')}</div></div>
-          <div class="md:col-span-2"><label class="form-label">核心跟进节点</label><textarea name="milestones" class="form-textarea" rows="3">${data.milestones}</textarea></div>
-          <div><label class="form-label">商机风险</label><textarea name="risks" class="form-textarea" rows="3">${data.risks}</textarea></div>
-          <div><label class="form-label">商机备注</label><textarea name="remark" class="form-textarea" rows="3">${data.remark}</textarea></div>
+          <div class="md:col-span-2"><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${this.escapeHTML(s.id)}" ${data.schoolId===s.id?'selected':''}>${this.escapeHTML(s.name)}</option>`).join('')}</select></div>
+          <div class="md:col-span-2"><label class="form-label">商机名称</label><input name="name" class="form-input" value="${this.escapeHTML(data.name)}" required></div>
+          <div><label class="form-label">商机阶段</label><select name="stage" class="form-select">${this.optionsFor(OPPORTUNITY_STAGES,data.stage).map(p=>`<option value="${this.escapeHTML(p)}" ${data.stage===p?'selected':''}>${this.escapeHTML(p)}</option>`).join('')}</select></div>
+          <div><label class="form-label">预计签约金额（万元）</label><input name="amount" type="number" class="form-input" value="${this.escapeHTML(data.amount)}"></div>
+          <div><label class="form-label">预计签约时间</label><input name="signDate" type="date" class="form-input" value="${this.escapeHTML(this.dateInputValue(data.signDate))}"></div>
+          <div><label class="form-label">销售负责人</label><select name="salesId" class="form-select"><option value="">请选择</option>${data.salesId&&!owners.some(p=>p.id===data.salesId||p.name===data.salesId)?`<option value="${this.escapeHTML(data.salesId)}" selected>${this.escapeHTML(this.personName(data.salesId))}（原记录）</option>`:''}${owners.map(p=>`<option value="${this.escapeHTML(p.id)}" ${data.salesId===p.id||data.salesId===p.name?'selected':''}>${this.escapeHTML(p.name)}</option>`).join('')}</select></div>
+          <div class="md:col-span-2"><label class="form-label">意向产品</label><div class="flex flex-wrap gap-3">${productOptions.map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="products" value="${this.escapeHTML(t)}" ${data.products.includes(t)?'checked':''}> ${this.escapeHTML(t)}</label>`).join('')}</div></div>
+          <div class="md:col-span-2"><label class="form-label">核心跟进节点</label><textarea name="milestones" class="form-textarea" rows="3">${this.escapeHTML(data.milestones)}</textarea></div>
+          <div><label class="form-label">商机风险</label><textarea name="risks" class="form-textarea" rows="3">${this.escapeHTML(data.risks)}</textarea></div>
+          <div><label class="form-label">商机备注</label><textarea name="remark" class="form-textarea" rows="3">${this.escapeHTML(data.remark)}</textarea></div>
         </form>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
         <button type="button" class="btn px-4 py-2 rounded-lg text-sm border border-slate-300" onclick="app.closeModal()">取消</button>
-        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveOpportunity('${data.id}')">保存</button>
+        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveOpportunity(${this.jsArg(data.id)})">保存</button>
       </div>
     `);
   },
@@ -849,18 +920,18 @@ const app = {
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl"><h3 class="font-bold text-lg">${st?'编辑干系人':'新增干系人'}</h3><button class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button></div>
       <div class="p-6 overflow-auto">
         <form id="stakeholderForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${s.id}" ${data.schoolId===s.id?'selected':''}>${s.name}</option>`).join('')}</select></div>
-          <div><label class="form-label">干系人类型</label><select name="type" class="form-select">${STAKEHOLDER_TYPES.map(t=>`<option value="${t}" ${data.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
-          <div><label class="form-label">姓名</label><input name="name" class="form-input" value="${data.name}"></div>
-          <div><label class="form-label">职务</label><input name="title" class="form-input" value="${data.title}"></div>
-          <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${data.phone}"></div>
-          <div><label class="form-label">微信/邮箱</label><input name="wechatEmail" class="form-input" value="${data.wechatEmail}"></div>
-          <div class="md:col-span-2"><label class="form-label">跟进记录（支持时间线）</label><textarea name="records" class="form-textarea" rows="5">${data.records}</textarea></div>
+          <div><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${this.escapeHTML(s.id)}" ${data.schoolId===s.id?'selected':''}>${this.escapeHTML(s.name)}</option>`).join('')}</select></div>
+          <div><label class="form-label">干系人类型</label><select name="type" class="form-select">${this.optionsFor(STAKEHOLDER_TYPES,data.type).map(t=>`<option value="${this.escapeHTML(t)}" ${data.type===t?'selected':''}>${this.escapeHTML(t)}</option>`).join('')}</select></div>
+          <div><label class="form-label">姓名</label><input name="name" class="form-input" value="${this.escapeHTML(data.name)}"></div>
+          <div><label class="form-label">职务</label><input name="title" class="form-input" value="${this.escapeHTML(data.title)}"></div>
+          <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${this.escapeHTML(data.phone)}"></div>
+          <div><label class="form-label">微信/邮箱</label><input name="wechatEmail" class="form-input" value="${this.escapeHTML(data.wechatEmail)}"></div>
+          <div class="md:col-span-2"><label class="form-label">跟进记录（支持时间线）</label><textarea name="records" class="form-textarea" rows="5">${this.escapeHTML(data.records)}</textarea></div>
         </form>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
         <button type="button" class="btn px-4 py-2 rounded-lg text-sm border border-slate-300" onclick="app.closeModal()">取消</button>
-        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveStakeholder('${data.id}')">保存</button>
+        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.saveStakeholder(${this.jsArg(data.id)})">保存</button>
       </div>
     `);
   },
@@ -880,17 +951,17 @@ const app = {
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl"><h3 class="font-bold text-lg">${p?'编辑人员':'新增人员'}</h3><button class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button></div>
       <div class="p-6 overflow-auto">
         <form id="personForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div><label class="form-label">姓名</label><input name="name" class="form-input" value="${data.name}" required></div>
-          <div><label class="form-label">角色</label><select name="role" class="form-select">${ROLES.map(r=>`<option value="${r}" ${data.role===r?'selected':''}>${r}</option>`).join('')}</select></div>
-          <div class="md:col-span-2"><label class="form-label">负责地市</label><div class="flex flex-wrap gap-3">${CITIES.map(c=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="cities" value="${c}" ${data.cities.includes(c)?'checked':''}> ${c}</label>`).join('')}</div></div>
-          <div class="md:col-span-2"><label class="form-label">负责学校</label><select name="schoolIds" multiple class="form-select" size="5">${this.data.schools.map(s=>`<option value="${s.id}" ${data.schoolIds.includes(s.id)?'selected':''}>${s.name}</option>`).join('')}</select></div>
-          <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${data.phone}"></div>
-          <div><label class="form-label">状态</label><select name="status" class="form-select">${PERSON_STATUS.map(s=>`<option value="${s}" ${data.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+          <div><label class="form-label">姓名</label><input name="name" class="form-input" value="${this.escapeHTML(data.name)}" required></div>
+          <div><label class="form-label">角色</label><select name="role" class="form-select">${this.optionsFor(ROLES,data.role).map(r=>`<option value="${this.escapeHTML(r)}" ${data.role===r?'selected':''}>${this.escapeHTML(r)}</option>`).join('')}</select></div>
+          <div class="md:col-span-2"><label class="form-label">负责地市</label><div class="flex flex-wrap gap-3">${this.optionsFor(CITIES,data.cities).map(c=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="cities" value="${this.escapeHTML(c)}" ${data.cities.includes(c)?'checked':''}> ${this.escapeHTML(c)}</label>`).join('')}</div></div>
+          <div class="md:col-span-2"><label class="form-label">负责学校</label><select name="schoolIds" multiple class="form-select" size="5">${this.data.schools.map(s=>`<option value="${this.escapeHTML(s.id)}" ${data.schoolIds.includes(s.id)?'selected':''}>${this.escapeHTML(s.name)}</option>`).join('')}</select></div>
+          <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${this.escapeHTML(data.phone)}"></div>
+          <div><label class="form-label">状态</label><select name="status" class="form-select">${this.optionsFor(PERSON_STATUS,data.status).map(s=>`<option value="${this.escapeHTML(s)}" ${data.status===s?'selected':''}>${this.escapeHTML(s)}</option>`).join('')}</select></div>
         </form>
       </div>
       <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
         <button type="button" class="btn px-4 py-2 rounded-lg text-sm border border-slate-300" onclick="app.closeModal()">取消</button>
-        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.savePerson('${data.id}')">保存</button>
+        <button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.savePerson(${this.jsArg(data.id)})">保存</button>
       </div>
     `);
   },
@@ -903,88 +974,152 @@ const app = {
   },
   deletePerson(id){ if(!confirm('确定删除该人员？')) return; this.data.persons=this.data.persons.filter(p=>p.id!==id); store.set(this.data); this.toast('删除成功','success'); this.refreshPage(); },
 
-  downloadTemplate(){
-    const type = document.getElementById('importType').value;
-    const headers = {
-      schools: ['学校名称','所在地区-省','所在地区-地市','所在地区-区县','办学类型','学校负责人','负责人职务','核心对接老师','对接人职务','联系电话','微信/邮箱','合作签约时间','项目总签约金额','备注'],
-      deliveries: ['学校名称','交付项目名称','交付产品类型','产品数量JSON','部署位置','交付进度','交付负责人','计划交付时间','实际交付时间','交付备注'],
-      opportunities: ['学校名称','商机名称','商机阶段','意向产品','预计签约金额','预计签约时间','销售负责人','核心跟进节点','商机风险','商机备注'],
-      persons: ['人员姓名','人员角色','负责地市','负责学校','联系电话','人员状态'],
-      stakeholders: ['干系人姓名','所属学校','职务','联系电话','微信/邮箱','干系类型','跟进记录']
+  csvHeaders(type, includeIds=true){
+    const headers={
+      schools:['学校名称','所在地区-省','所在地区-地市','所在地区-区县','办学类型','学校负责人','负责人职务','核心对接老师','对接人职务','联系电话','微信/邮箱','合作签约时间','项目总签约金额','备注'],
+      deliveries:['学校名称','交付项目名称','交付产品类型','产品数量JSON','部署位置','交付进度','交付负责人','计划交付时间','实际交付时间','交付备注'],
+      opportunities:['学校名称','商机名称','商机阶段','意向产品','预计签约金额','预计签约时间','销售负责人','核心跟进节点','商机风险','商机备注'],
+      persons:['人员姓名','人员角色','负责地市','负责学校','联系电话','人员状态'],
+      stakeholders:['干系人姓名','所属学校','职务','联系电话','微信/邮箱','干系类型','跟进记录']
     };
-    const csv = headers[type].join(',')+'\n';
-    this.downloadFile('﻿'+csv, `模板_${type}.csv`, 'text/csv;charset=utf-8;');
+    const extra={schools:['记录ID'],deliveries:['记录ID','学校ID','负责人ID'],opportunities:['记录ID','学校ID','负责人ID'],persons:['记录ID','负责学校ID'],stakeholders:['记录ID','学校ID']};
+    if(!headers[type]) throw new Error('不支持的导入类型');
+    return includeIds ? [...headers[type],...extra[type]] : headers[type];
+  },
+
+  downloadTemplate(){
+    const type=document.getElementById('importType').value;
+    this.downloadFile('\uFEFF'+this.csvHeaders(type).map(v=>this.csvField(v)).join(',')+'\r\n',`模板_${type}.csv`,'text/csv;charset=utf-8;');
+  },
+
+  parseCSV(text){
+    const input=String(text??'').replace(/^\uFEFF/,'');
+    const rows=[]; let values=[],field='',quoted=false,closed=false,line=1,rowLine=1;
+    const finish=()=>{values.push(field);if(values.some(v=>v.trim()!=='')) rows.push({values,line:rowLine});values=[];field='';closed=false;};
+    for(let i=0;i<input.length;i++){
+      const c=input[i];
+      if(quoted){
+        if(c==='"'){if(input[i+1]==='"'){field+='"';i++;}else{quoted=false;closed=true;}}
+        else{field+=c;if(c==='\n'||(c==='\r'&&input[i+1]!=='\n')) line++;}
+      }else if(c===','){values.push(field);field='';closed=false;}
+      else if(c==='\r'||c==='\n'){
+        finish();if(c==='\r'&&input[i+1]==='\n') i++;line++;rowLine=line;
+      }else if(c==='"'){
+        if(closed||field.trim()!=='') throw new Error(`第${line}行：引号位置不正确，请使用 CSV 双引号转义`);
+        field='';quoted=true;
+      }else if(closed){if(!/\s/.test(c)) throw new Error(`第${line}行：闭合引号后存在多余内容`);}
+      else field+=c;
+    }
+    if(quoted) throw new Error(`第${rowLine}行：带引号的字段没有闭合`);
+    finish();return rows;
+  },
+
+  csvNumber(value,label){
+    const raw=String(value??'').trim();if(raw==='') return 0;
+    if(!/^(?:\d+(?:\.\d+)?|\d{1,3}(?:,\d{3})+(?:\.\d+)?)$/.test(raw)) throw new Error(`${label}必须是非负数字`);
+    const number=Number(raw.replace(/,/g,''));
+    if(!Number.isFinite(number)) throw new Error(`${label}不是有效数字`);
+    return number;
+  },
+
+  csvRecordKey(type,record){
+    const keys={schools:[record.name,record.city,record.district],deliveries:[record.schoolId,record.name],opportunities:[record.schoolId,record.name],persons:[record.name,record.phone],stakeholders:[record.schoolId,record.name]};
+    return JSON.stringify(keys[type].map(v=>String(v??'').trim()));
   },
 
   importCSV(){
-    const fileInput = document.getElementById('importFile');
-    const type = document.getElementById('importType').value;
-    const resultDiv = document.getElementById('importResult');
-    if (!fileInput.files.length) { this.toast('请选择文件','error'); return; }
-    const file = fileInput.files[0]; const reader = new FileReader();
-    reader.onload = e => {
-      const text = e.target.result; const lines = text.split(/\r?\n/).filter(l=>l.trim());
-      if (lines.length < 2) { resultDiv.textContent='文件内容为空或格式错误'; resultDiv.className='p-3 rounded-lg text-sm bg-rose-50 text-rose-700'; resultDiv.classList.remove('hidden'); return; }
-      let success=0, fail=0, errors=[];
-      for (let i=1;i<lines.length;i++) {
-        const cols = lines[i].split(',');
-        try {
-          if (type==='schools') {
-            const name=cols[0]?.trim(); if(!name) continue;
-            const city=(cols[2]||'杭州市').trim();
-            const idx = this.data.schools.findIndex(s=>s.name===name);
-            const rec = { id: idx>=0?this.data.schools[idx].id:'S'+Date.now()+i, name, city, district:(cols[3]||'').trim(), schoolType:(cols[4]||'').split('/').filter(Boolean), principal:(cols[5]||'').trim(), principalTitle:(cols[6]||'').trim(), contact:(cols[7]||'').trim(), contactTitle:(cols[8]||'').trim(), phone:(cols[9]||'').trim(), wechatEmail:(cols[10]||'').trim(), signDate:(cols[11]||'').trim(), totalAmount:+cols[12]||0, remark:(cols[13]||'').trim() };
-            if (idx>=0) this.data.schools[idx]=rec; else this.data.schools.push(rec); success++;
-          } else if (type==='deliveries') {
-            const schoolName=cols[0]?.trim(); const s=this.data.schools.find(x=>x.name===schoolName); if(!s) { fail++; errors.push(`第${i+1}行：学校不存在`); continue; }
-            const rec={ id:'D'+Date.now()+i, schoolId:s.id, name:(cols[1]||'').trim(), productTypes:(cols[2]||'').split('/').filter(Boolean), quantities:this.safeJson(cols[3]||'{}'), deployLocation:(cols[4]||'').trim(), progress:(cols[5]||'未启动').trim(), managerId:'', planDate:(cols[7]||'').trim(), actualDate:(cols[8]||'').trim(), remark:(cols[9]||'').trim() };
-            this.data.deliveries.push(rec); success++;
-          } else if (type==='opportunities') {
-            const schoolName=cols[0]?.trim(); const s=this.data.schools.find(x=>x.name===schoolName); if(!s) { fail++; continue; }
-            const rec={ id:'O'+Date.now()+i, schoolId:s.id, name:(cols[1]||'').trim(), stage:(cols[2]||'初步接触').trim(), products:(cols[3]||'').split('/').filter(Boolean), amount:+cols[4]||0, signDate:(cols[5]||'').trim(), salesId:'', milestones:(cols[7]||'').trim(), risks:(cols[8]||'').trim(), remark:(cols[9]||'').trim() };
-            this.data.opportunities.push(rec); success++;
-          } else if (type==='persons') {
-            const rec={ id:'P'+Date.now()+i, name:(cols[0]||'').trim(), role:(cols[1]||'驻点销售').trim(), cities:(cols[2]||'').split('/').filter(Boolean), schoolIds:(cols[3]||'').split('/').map(n=>this.data.schools.find(s=>s.name===n.trim())?.id).filter(Boolean), phone:(cols[4]||'').trim(), status:(cols[5]||'在职').trim() };
-            this.data.persons.push(rec); success++;
-          } else if (type==='stakeholders') {
-            const schoolName=cols[1]?.trim(); const s=this.data.schools.find(x=>x.name===schoolName); if(!s) { fail++; continue; }
-            const rec={ id:'ST'+Date.now()+i, name:(cols[0]||'').trim(), schoolId:s.id, title:(cols[2]||'').trim(), phone:(cols[3]||'').trim(), wechatEmail:(cols[4]||'').trim(), type:(cols[5]||'对接人').trim(), records:(cols[6]||'').trim() };
-            this.data.stakeholders.push(rec); success++;
-          }
-        } catch(err){ fail++; errors.push(`第${i+1}行：${err.message}`); }
-      }
-      store.set(this.data);
-      resultDiv.innerHTML = `<div class="font-semibold mb-1">导入完成</div><div>成功 ${success} 条，失败 ${fail} 条</div>${errors.length?`<div class="mt-2 text-xs max-h-32 overflow-auto">${errors.join('<br>')}</div>`:''}`;
-      resultDiv.className = 'p-3 rounded-lg text-sm '+(fail===0?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700');
-      resultDiv.classList.remove('hidden'); this.refreshPage();
+    const fileInput=document.getElementById('importFile');const type=document.getElementById('importType').value;
+    if(!fileInput.files.length){this.toast('请选择文件','error');return;}
+    const report=(message,hasErrors)=>{
+      const resultDiv=document.getElementById('importResult');if(!resultDiv) return;
+      resultDiv.textContent=message;
+      resultDiv.className='p-3 rounded-lg text-sm whitespace-pre-line max-h-64 overflow-auto '+(hasErrors?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700');
+      resultDiv.classList.remove('hidden');
     };
-    reader.readAsText(file);
+    const reader=new FileReader();
+    reader.onerror=()=>report('文件读取失败，请重新选择 CSV 文件。',true);
+    reader.onload=e=>{
+      let rows,header,required;
+      try{
+        rows=this.parseCSV(e.target.result);required=this.csvHeaders(type,false);
+        if(rows.length<2) throw new Error('文件为空或只有表头，请至少填写一条数据。');
+        header=rows[0].values.map(v=>v.trim());
+        if(new Set(header).size!==header.length) throw new Error('表头有重复列，请按模板检查。');
+        const missing=required.filter(name=>!header.includes(name));
+        if(missing.length) throw new Error('缺少表头：'+missing.join('、')+'。请确认导入类型并使用对应模板。');
+      }catch(error){report(error.message,true);return;}
+      const next=JSON.parse(JSON.stringify(this.data));let added=0,updated=0;const errors=[];
+      const split=value=>String(value||'').split('/').map(v=>v.trim()).filter(Boolean);
+      const school=(name,id='')=>{
+        const matches=next.schools.filter(s=>id?s.id===id:s.name===name);
+        if(!matches.length) throw new Error(`学校“${name||id}”不存在，请先导入学校`);
+        if(matches.length>1) throw new Error(`学校“${name}”有重名，请填写学校ID`);
+        return matches[0];
+      };
+      const person=(name,id='')=>{
+        if(!id&&(!name||name==='未分配')) return '';
+        const matches=next.persons.filter(p=>id?p.id===id:(p.name===name||p.id===name));
+        if(!matches.length) throw new Error(`负责人“${name||id}”不存在，请先导入人员`);
+        if(matches.length>1) throw new Error(`负责人“${name}”有重名，请填写负责人ID`);
+        return matches[0].id;
+      };
+      for(const row of rows.slice(1)){
+        try{
+          if(row.values.length!==header.length) throw new Error(`有 ${row.values.length} 列，模板要求 ${header.length} 列；含逗号或换行的字段必须用双引号包裹`);
+          const get=name=>String(row.values[header.indexOf(name)]??'').trim();
+          let rec;
+          if(type==='schools') rec={name:get('学校名称'),city:get('所在地区-地市')||'杭州市',district:get('所在地区-区县'),schoolType:split(get('办学类型')),principal:get('学校负责人'),principalTitle:get('负责人职务'),contact:get('核心对接老师'),contactTitle:get('对接人职务'),phone:get('联系电话'),wechatEmail:get('微信/邮箱'),signDate:get('合作签约时间'),totalAmount:this.csvNumber(get('项目总签约金额'),'项目总签约金额'),remark:get('备注')};
+          else if(type==='deliveries') rec={schoolId:school(get('学校名称'),get('学校ID')).id,name:get('交付项目名称'),productTypes:split(get('交付产品类型')),quantities:this.safeJson(get('产品数量JSON')||'{}'),deployLocation:get('部署位置'),progress:get('交付进度')||'未启动',managerId:person(get('交付负责人'),get('负责人ID')),planDate:get('计划交付时间'),actualDate:get('实际交付时间'),remark:get('交付备注')};
+          else if(type==='opportunities') rec={schoolId:school(get('学校名称'),get('学校ID')).id,name:get('商机名称'),stage:get('商机阶段')||'初步接触',products:split(get('意向产品')),amount:this.csvNumber(get('预计签约金额'),'预计签约金额'),signDate:get('预计签约时间'),salesId:person(get('销售负责人'),get('负责人ID')),milestones:get('核心跟进节点'),risks:get('商机风险'),remark:get('商机备注')};
+          else if(type==='persons') rec={name:get('人员姓名'),role:get('人员角色')||'驻点销售',cities:split(get('负责地市')),schoolIds:get('负责学校ID')?split(get('负责学校ID')).map(id=>school('',id).id):split(get('负责学校')).map(name=>school(name).id),phone:get('联系电话'),status:get('人员状态')||'在职'};
+          else if(type==='stakeholders') rec={name:get('干系人姓名'),schoolId:school(get('所属学校'),get('学校ID')).id,title:get('职务'),phone:get('联系电话'),wechatEmail:get('微信/邮箱'),type:get('干系类型')||'对接人',records:get('跟进记录')};
+          if(!rec.name) throw new Error('名称不能为空');
+          const records=next[type];const explicitId=get('记录ID');
+          if(explicitId&&!/^[A-Za-z0-9_-]{1,128}$/.test(explicitId)) throw new Error('记录ID仅允许字母、数字、下划线和连字符');
+          const sameId=explicitId?records.findIndex(x=>x.id===explicitId):-1;
+          const sameKey=records.map((x,index)=>({x,index})).filter(({x})=>this.csvRecordKey(type,x)===this.csvRecordKey(type,rec));
+          if(sameId<0&&sameKey.length>1) throw new Error('存在多条同名记录，请填写记录ID后导入');
+          const index=sameId>=0?sameId:(sameKey[0]?.index??-1);
+          if(index>=0){records[index]={...records[index],...rec};updated++;}
+          else{
+            const prefix={schools:'S',deliveries:'D',opportunities:'O',persons:'P',stakeholders:'ST'}[type];
+            rec.id=explicitId||prefix+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2));
+            records.push(rec);added++;
+          }
+        }catch(error){errors.push(`第${row.line}行：${error.message}`);}
+      }
+      if(added+updated){
+        this.data=next;store.set(this.data);this.refreshPage();
+      }
+      report(`导入完成：新增 ${added} 条，更新 ${updated} 条，失败 ${errors.length} 条。${errors.length?'\n'+errors.join('\n'):''}`,errors.length>0);
+    };
+    reader.readAsText(fileInput.files[0],'UTF-8');
   },
 
-  safeJson(str){ try { return JSON.parse(str); } catch(e){ return {}; } },
+  safeJson(str){
+    let value;try{value=JSON.parse(str);}catch(error){throw new Error('产品数量JSON格式错误，请填写例如 {"智慧黑板":2}');}
+    if(!value||typeof value!=='object'||Array.isArray(value)) throw new Error('产品数量JSON必须是产品名称到数量的对象');
+    return Object.fromEntries(Object.entries(value).map(([name,quantity])=>{
+      if(!name.trim()||quantity===null||typeof quantity==='boolean'||typeof quantity==='object'||String(quantity).trim()==='') throw new Error(`产品“${name}”的数量无效`);
+      return [name,this.csvNumber(quantity,`产品“${name}”的数量`)];
+    }));
+  },
 
   exportCSV(type){
-    let csv='';
-    if (type==='schools') {
-      csv = '学校名称,所在地区-省,所在地区-地市,所在地区-区县,办学类型,学校负责人,负责人职务,核心对接老师,对接人职务,联系电话,微信/邮箱,合作签约时间,项目总签约金额,备注\n';
-      this.data.schools.forEach(s=>{ csv+=`${this.csvField(s.name)},浙江省,${s.city},${s.district},${s.schoolType.join('/')},${s.principal},${s.principalTitle},${s.contact},${s.contactTitle},${s.phone},${s.wechatEmail},${s.signDate},${s.totalAmount},${this.csvField(s.remark)}\n`; });
-    } else if (type==='deliveries') {
-      csv = '学校名称,交付项目名称,交付产品类型,产品数量JSON,部署位置,交付进度,交付负责人,计划交付时间,实际交付时间,交付备注\n';
-      this.data.deliveries.forEach(d=>{ const s=this.data.schools.find(x=>x.id===d.schoolId); csv+=`${this.csvField(s?s.name:'')},${this.csvField(d.name)},${d.productTypes.join('/')},"${JSON.stringify(d.quantities||{})}",${d.deployLocation},${d.progress},${this.personName(d.managerId)},${d.planDate},${d.actualDate},${this.csvField(d.remark)}\n`; });
-    } else if (type==='opportunities') {
-      csv = '学校名称,商机名称,商机阶段,意向产品,预计签约金额,预计签约时间,销售负责人,核心跟进节点,商机风险,商机备注\n';
-      this.data.opportunities.forEach(o=>{ const s=this.data.schools.find(x=>x.id===o.schoolId); csv+=`${this.csvField(s?s.name:'')},${this.csvField(o.name)},${o.stage},${o.products.join('/')},${o.amount},${o.signDate},${this.personName(o.salesId)},"${this.csvField(o.milestones)}","${this.csvField(o.risks)}",${this.csvField(o.remark)}\n`; });
-    } else if (type==='persons') {
-      csv = '人员姓名,人员角色,负责地市,负责学校,联系电话,人员状态\n';
-      this.data.persons.forEach(p=>{ const names=p.schoolIds.map(id=>this.data.schools.find(s=>s.id===id)?.name).filter(Boolean); csv+=`${p.name},${p.role},${p.cities.join('/')},${names.join('/')},${p.phone},${p.status}\n`; });
-    } else if (type==='stakeholders') {
-      csv = '干系人姓名,所属学校,职务,联系电话,微信/邮箱,干系类型,跟进记录\n';
-      this.data.stakeholders.forEach(st=>{ const s=this.data.schools.find(x=>x.id===st.schoolId); csv+=`${st.name},${this.csvField(s?s.name:'')},${st.title},${st.phone},${st.wechatEmail},${st.type},"${this.csvField(st.records)}"\n`; });
-    }
-    this.downloadFile('﻿'+csv, `导出_${type}.csv`, 'text/csv;charset=utf-8;');
+    const schoolName=id=>this.data.schools.find(s=>s.id===id)?.name||'';
+    const personName=id=>id?this.personName(id):'';
+    const rows=this.data[type].map(record=>{
+      if(type==='schools') return [record.name,'浙江省',record.city,record.district,(record.schoolType||[]).join('/'),record.principal,record.principalTitle,record.contact,record.contactTitle,record.phone,record.wechatEmail,record.signDate,record.totalAmount,record.remark,record.id];
+      if(type==='deliveries') return [schoolName(record.schoolId),record.name,(record.productTypes||[]).join('/'),JSON.stringify(record.quantities||{}),record.deployLocation,record.progress,personName(record.managerId),record.planDate,record.actualDate,record.remark,record.id,record.schoolId,record.managerId];
+      if(type==='opportunities') return [schoolName(record.schoolId),record.name,record.stage,(record.products||[]).join('/'),record.amount,record.signDate,personName(record.salesId),record.milestones,record.risks,record.remark,record.id,record.schoolId,record.salesId];
+      if(type==='persons') return [record.name,record.role,(record.cities||[]).join('/'),(record.schoolIds||[]).map(schoolName).join('/'),record.phone,record.status,record.id,(record.schoolIds||[]).join('/')];
+      return [record.name,schoolName(record.schoolId),record.title,record.phone,record.wechatEmail,record.type,record.records,record.id,record.schoolId];
+    });
+    const csv=[this.csvHeaders(type),...rows].map(row=>row.map(value=>this.csvField(value)).join(',')).join('\r\n')+'\r\n';
+    this.downloadFile('\uFEFF'+csv,`导出_${type}.csv`,'text/csv;charset=utf-8;');
   },
 
-  csvField(v){ const s=String(v||''); if (s.includes(',')||s.includes('"')||s.includes('\n')) return '"'+s.replace(/"/g,'""')+'"'; return s; },
+  csvField(value){const text=String(value??'');return /[,"\r\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;},
 
   exportAllData(){
     const json = JSON.stringify(this.data, null, 2);
@@ -1029,6 +1164,7 @@ const app = {
   importInTransitData(){
     const key = 'zhejiang_csv_imported_v10';
     const isNewImport = !localStorage.getItem(key);
+    if (!isNewImport) return;
     const schools = [
       {id:'CSV_S1',name:'荣怀教育集团',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:11.44,remark:'从小GB在途项目明细导入'},
       {id:'CSV_S2',name:'荣怀集团仙桃校区',city:'绍兴市',district:'诸暨市',schoolType:['初中'],principal:'',principalTitle:'',contact:'',contactTitle:'',phone:'',wechatEmail:'',signDate:'2026/4/20',totalAmount:23.5,remark:'从小GB在途项目明细导入'},
@@ -1205,15 +1341,11 @@ const app = {
     });
     }
     let oppCount = 0;
-    // 清理模拟数据生成的商机（ID为 O 开头+数字的），只保留从商机表格导入的真实数据
-    if (isNewImport) {
-    this.data.opportunities = this.data.opportunities.filter(o => o.id.startsWith('OPP_O'));
-    }
     oppOpps.forEach(o => {
       const existing = this.data.opportunities.find(x => x.id === o.id);
-      if (existing) {
-        if (o.salesId && existing.salesId !== o.salesId) { existing.salesId = o.salesId; oppCount++; }
-      } else {
+      if (!existing) {
+        const owner = this.data.persons.find(p=>p.id===o.salesId||p.name===o.salesId);
+        if (owner) o.salesId = owner.id;
         this.data.opportunities.push(o); oppCount++;
       }
     });
@@ -1242,9 +1374,12 @@ document.getElementById('contextMenu').addEventListener('click', e=>{
   else if(action==='edit') { if(app.hoveredCity) app.go('city', app.hoveredCity); }
   app.hideContextMenu();
 });
-window.addEventListener('DOMContentLoaded', ()=>app.init());
+window.addEventListener('DOMContentLoaded', ()=>{
+  window.SchoolMapCloud.boot(app, store).catch(error=>{
+    console.error('初始化失败', error);
+    document.getElementById('cloudSaveStatus').textContent='加载失败，本地数据已保留';
+  });
+});
 </script>
 </body>
 </html>
-      {id:'OPP_P8',name:'王继周',role:'驻点销售',cities:["台州市"],schoolIds:[],phone:'',status:'在职'},
-      {id:'OPP_P9',name:'苏鸿建',role:'驻点销售',cities:["台州市"],schoolIds:[],phone:'',status:'在职'},

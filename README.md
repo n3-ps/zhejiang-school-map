@@ -1,6 +1,8 @@
  # 浙江民办校作战地图
  
  浙江省民办校业务作战地图 - 用于管理浙江省民办学校的合作信息、交付项目、商机跟进等业务数据。
+
+ 截至 2026-10-08，Supabase 新加坡项目已建库并迁移 143 条业务记录（65 所学校、17 项交付、47 个商机、14 名人员）。项目地址：[pwjfxmqzdfauonrjefvn.supabase.co](https://pwjfxmqzdfauonrjefvn.supabase.co)。本地云端公开配置已填好；成员账号授权、真实自动保存与跨设备同步联调仍待完成。匿名快照 RPC、保存 RPC、记录表查询已实测全部拒绝访问（HTTP 401 / 42501）。
  
  ## 🚀 部署方式
  
@@ -15,9 +17,9 @@
  git push -u origin main
  ```
  
- 3. 在 GitHub 仓库页面进入 **Settings → Pages**，选择 **Deploy from a branch**
- 4. 分支选 `main`，目录选 `/ (root)`，点击 **Save**
- 5. 等待约 1-2 分钟，访问 `https://你的用户名.github.io/zhejiang-battle-map`
+ 3. 在 GitHub 仓库页面进入 **Settings → Pages**，来源选择 **GitHub Actions**。
+ 4. 工作流先运行 `node --test tests/*.test.cjs`，再执行 `node build-site.cjs`，只发布生成的 `dist` 目录。
+ 5. 工作流部署成功后，访问 `https://你的用户名.github.io/zhejiang-battle-map`。
  
  代码已内置 GitHub Actions 自动部署配置，推送 main 分支后会自动发布。
  
@@ -57,8 +59,11 @@
  
  ## 💾 数据说明
  
- 所有数据存储在浏览器的 `localStorage` 中，不同浏览器/设备的数据相互独立。
- 如需迁移数据，可在页面 **数据导入/导出** 页面导出 JSON 文件，再在其他设备导入。
+ 未配置云端时，数据存储在当前浏览器的 `localStorage` 中；修复后刷新不会清空台账。
+ 现有项目已经执行 [建库脚本](supabase/schema.sql)、完成迁移并填写 `cloud-config.js` 中的公开配置。多人登录所需的认证账号与成员授权按 [CLOUD_SETUP.md](CLOUD_SETUP.md) 配置；现有工作区已有 143 条记录，不应重复初次迁移。
+ 云端模式支持成员邮箱密码登录、保存即时提交、5 秒自动读取其他成员更新、离线暂存及逐记录版本冲突检查。初次迁移前导出最新 JSON 备份；云端同步面板可以选择该备份导入空工作区。
+ 发布使用 `node build-site.cjs` 生成的 `dist` 目录，GitHub Actions 已配置。云端配置生效时，发布文件排除内置业务种子与公开备份；不要直接发布整个仓库。
+ 校验命令：`node --test tests/*.test.cjs`。
  
  ## 📁 项目文件
  
