@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { RevisionQueue, CloudClient, emptyData } = require('../cloud-sync.js');
+const { RevisionQueue, CloudClient, emptyData, boot } = require('../cloud-sync.js');
 const row = (id, name, version = 1, deleted = false) => ({ collection: 'schools', id, payload: { id, name }, version, deleted });
 const change = (q, name) => { const data = q.materialize(); data.schools[0].name = name; q.observe(data); };
 
@@ -112,4 +112,63 @@ test('a different account cannot adopt another member\'s durable pending changes
   c.request = async () => [{ user_id: 'member-2' }];
   await assert.rejects(c.connect(), /其他账号/); assert.equal(c.ready, false); assert.equal(c.connecting, false);
   assert.equal(JSON.parse(localStorage.getItem(c.queueKey)).userId, 'member-1');
+});
+
+test('reloading with an existing session shows connection progress and restores the remote ledger without another login', async () => {
+  const names = ['localStorage', 'sessionStorage', 'document', 'navigator', 'window', 'fetch', 'SCHOOL_MAP_CLOUD', 'schoolMapCloud'];
+  const previous = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(global, name)]));
+  let client;
+  try {
+    global.localStorage = mockStorage(); global.sessionStorage = mockStorage();
+    global.SCHOOL_MAP_CLOUD = { url: 'https://example.supabase.co', workspaceId: 'test', publishableKey: 'public' };
+    const session = { access_token: 'test-access', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: 'member-1' } };
+    const sessionKey = 'school-map-session:https://example.supabase.co:test';
+    sessionStorage.setItem(sessionKey, JSON.stringify(session));
+    const messages = [];
+    const status = { set textContent(message) { messages.push(message); } };
+    global.document = { visibilityState: 'visible', getElementById: id => id === 'cloudSaveStatus' ? status : null };
+    global.window = { addEventListener() {} };
+    Object.defineProperty(global, 'navigator', { configurable: true, value: { onLine: true, locks: { request: async (_name, _options, callback) => callback({}) } } });
+    let finishSnapshot;
+    const pendingSnapshot = new Promise(resolve => { finishSnapshot = resolve; });
+    const requests = [];
+    global.fetch = async url => {
+      requests.push(url);
+      if (url.includes('/rest/v1/school_map_members?')) return { ok: true, json: async () => [{ user_id: 'member-1' }] };
+      if (url.endsWith('/rest/v1/rpc/read_school_map_snapshot')) return pendingSnapshot;
+      throw new Error('Unexpected request during session restoration');
+    };
+    const store = { key: 'reload-ledger', set(data) { localStorage.setItem(this.key, JSON.stringify(data)); } };
+    store.set({ ...emptyData(), schools: [{ id: 's1', name: 'cached version' }] });
+    const app = {
+      data: emptyData(),
+      async init() { this.data = JSON.parse(localStorage.getItem(store.key)); },
+      refreshPage() {}, updateStorageInfo() {}, toast() {}, closeModal() {}
+    };
+    for (const name of ['saveSchool', 'saveDelivery', 'saveOpportunity', 'saveStakeholder', 'savePerson', 'deleteSchool', 'deleteDelivery', 'deleteOpportunity', 'deleteStakeholder', 'deletePerson', 'importCSV']) app[name] = () => {};
+
+    client = await boot(app, store);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(client.ready, false);
+    assert.equal(client.session.user.id, 'member-1');
+    assert.equal(messages.some(message => /请登录/.test(message)), false);
+    assert.match(messages.at(-1), /连接|读取/);
+
+    finishSnapshot({ ok: true, json: async () => ({ records: [row('s1', 'remote version', 2), row('s2', 'cloud addition')] }) });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(client.ready, true);
+    assert.equal(client.session.access_token, session.access_token);
+    assert.equal(JSON.parse(sessionStorage.getItem(sessionKey)).user.id, 'member-1');
+    assert.deepEqual(app.data.schools.map(school => school.name), ['remote version', 'cloud addition']);
+    assert.deepEqual(JSON.parse(localStorage.getItem(store.key)).schools, app.data.schools);
+    assert.match(messages.at(-1), /已连接云端/);
+    assert.equal(requests.some(url => url.includes('/auth/v1/')), false);
+  } finally {
+    if (client?.timer) clearInterval(client.timer);
+    client?.releaseLock?.();
+    for (const [name, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(global, name, descriptor);
+      else delete global[name];
+    }
+  }
 });

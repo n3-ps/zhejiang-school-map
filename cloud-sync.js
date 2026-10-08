@@ -98,7 +98,14 @@
     persist() {
       localStorage.setItem(this.queueKey, JSON.stringify({ userId: this.session?.user?.id, ...this.queue.serialize() }));
     }
-    setStatus(message) { this.message = message; const el = document.getElementById('cloudSaveStatus'); if (el) el.textContent = message; this.renderPanel(); }
+    setStatus(message, connected = false) {
+      this.message = message;
+      const el = document.getElementById('cloudSaveStatus'); if (el) el.textContent = message;
+      const mode = document.getElementById('storageModeLabel');
+      if (mode) mode.textContent = !this.session ? '本地暂存 · 待登录' : connected && this.ready && navigator.onLine && !this.queue.pending.size && !this.conflicted ? '数据云端同步' : '云端同步 · 本地暂存';
+      const icon = document.getElementById('storageModeIcon'); if (icon) icon.className = this.session ? 'ri-cloud-line' : 'ri-hard-drive-2-line';
+      this.renderPanel();
+    }
     async auth(path, body) {
       const response = await fetch(this.url + '/auth/v1/' + path, { method: 'POST', headers: { apikey: this.config.publishableKey, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
       const result = await response.json();
@@ -152,7 +159,7 @@
       if (!localStorage.getItem(this.recoveryKey)) localStorage.setItem(this.recoveryKey, JSON.stringify(this.seed));
       this.app.closeModal();
       this.ready = true; this.replaceApp(); this.persist();
-      this.setStatus(this.conflicted ? '存在编辑冲突，待同步修改已保留' : this.queue.pending.size ? '有待同步修改' : rows.length ? '已连接云端' : '云端为空，可导入原有数据');
+      this.setStatus(this.conflicted ? '存在编辑冲突，待同步修改已保留' : this.queue.pending.size ? '有待同步修改' : rows.length ? '已连接云端' : '云端为空，可导入原有数据', true);
       if (!this.conflicted) void this.flush();
       } finally { this.connecting = false; }
     }
@@ -181,6 +188,7 @@
       const closeModal = this.app.closeModal.bind(this.app);
       this.app.closeModal = () => { closeModal(); if (this.remoteRefreshDeferred) { this.remoteRefreshDeferred = false; this.app.refreshPage(); } };
       window.addEventListener('online', () => { void this.tick(); });
+      window.addEventListener('offline', () => this.setStatus('已离线，修改将暂存本机；联网后同步'));
       window.addEventListener('beforeunload', event => { if (this.queue.pending.size) { event.preventDefault(); event.returnValue = ''; } });
       this.timer = setInterval(() => { if (document.visibilityState !== 'hidden') void this.tick(); }, Math.max(3000, this.config.pollIntervalMs || 5000));
       if (this.session && !this.readOnlyTab) this.connect().catch(error => this.setStatus(error.message));
@@ -194,7 +202,7 @@
           const result = await this.request('rpc/apply_school_map_changes', { method: 'POST', body: JSON.stringify({ p_workspace_id: this.config.workspaceId, p_changes: sent }) });
           this.queue.acknowledge(sent, result.records); this.persist();
         }
-        this.setStatus('已保存到云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        this.setStatus('已保存到云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }), true);
       } catch (error) {
         if (error.code === '40001') { this.conflicted = true; this.setStatus('存在编辑冲突，请打开云端同步处理'); }
         else if (error.code === '42501') { this.ready = false; this.setStatus('云端权限不足，待同步修改已保留，请联系管理员'); }
@@ -217,7 +225,7 @@
         if (this.queue.conflicts(rows).length) { this.conflicted = true; this.setStatus('存在编辑冲突，请打开云端同步处理'); return; }
         const before = canonical(this.queue.materialize()); this.queue.loadRemote(rows); this.persist();
         if (before !== canonical(this.queue.materialize())) this.replaceApp();
-        if (!this.queue.pending.size) this.setStatus('已同步云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+        if (!this.queue.pending.size) this.setStatus('已同步云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }), true);
       } catch (error) {
         if (error.code === '42501') { this.ready = false; this.setStatus('云端权限已被撤销，本地数据已保留，请联系管理员'); }
         else if (!this.session) this.setStatus('登录已过期，待同步修改已保留，请重新登录');
@@ -246,7 +254,7 @@
       if (this.busy || !this.ready || !confirm('会先下载包含本地修改的备份，再采用最新云端数据。本地未同步修改可从备份重新整理。是否继续？')) return;
       this.download(this.queue.materialize(), '冲突本地备份');
       this.busy = true;
-      try { const rows = await this.readRows(); this.app.closeModal(); this.queue = new RevisionQueue(); this.queue.loadRemote(rows); this.conflicted = false; this.persist(); this.replaceApp(); this.setStatus('已采用最新云端数据'); }
+      try { const rows = await this.readRows(); this.app.closeModal(); this.queue = new RevisionQueue(); this.queue.loadRemote(rows); this.conflicted = false; this.persist(); this.replaceApp(); this.setStatus('已采用最新云端数据', true); }
       catch (error) { this.setStatus('读取失败，本地修改仍保留'); }
       finally { this.busy = false; }
     }
@@ -321,7 +329,8 @@
       }).catch(() => { client.readOnlyTab = true; resolve(); });
     });
     else client.readOnlyTab = true;
-    client.attach(); client.setStatus(client.readOnlyTab ? '另一标签页正在编辑或浏览器不支持编辑锁，此页只读' : '请登录云端账号'); if (button) button.onclick = () => client.openPanel();
+    client.setStatus(client.readOnlyTab ? '另一标签页正在编辑或浏览器不支持编辑锁，此页只读' : client.session ? '正在连接云端…' : '请登录云端账号');
+    client.attach(); if (button) button.onclick = () => client.openPanel();
     return client;
   }
   const api = { RevisionQueue, CloudClient, boot, canonical, emptyData, COLLECTIONS };
