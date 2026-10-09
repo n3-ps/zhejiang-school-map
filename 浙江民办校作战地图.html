@@ -285,7 +285,7 @@ const app = {
     const topCities = this.computeCityStats().sort((a,b)=>b.totalAmount-a.totalAmount).slice(0,3);
     container.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        ${this.statCard('在途交付项目', stats.deliveryCount, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
+        ${this.statCard('项目总数', this.data.deliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机数', stats.opportunityCount, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
         ${this.statCard('在途商机总额', stats.opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('累计签约金额', stats.totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
