@@ -998,14 +998,30 @@ const app = {
   openPersonModal(personId){
     const p = personId ? this.data.persons.find(x=>x.id===personId) : null;
     const data = p || { id:'P'+Date.now(), name:'', role:'驻点销售', cities:[], schoolIds:[], phone:'', status:'在职' };
+    const cities=Array.isArray(data.cities)?data.cities:[];
+    const selectedCities=new Set(cities);
+    const schoolIds=new Set(Array.isArray(data.schoolIds)?data.schoolIds:[]);
+    const schools=this.data.schools;
+    const visibleSchools=schools.filter(s=>selectedCities.has(s.city));
+    const hiddenSelectedCount=Array.from(schoolIds).filter(id=>!visibleSchools.some(s=>s.id===id)).length;
+    const missingSchoolIds=Array.from(schoolIds).filter(id=>!schools.some(s=>s.id===id));
     this.openModal(`
       <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl"><h3 class="font-bold text-lg">${p?'编辑人员':'新增人员'}</h3><button class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button></div>
       <div class="p-6 overflow-auto">
         <form id="personForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label class="form-label">姓名</label><input name="name" class="form-input" value="${this.escapeHTML(data.name)}" required></div>
           <div><label class="form-label">角色</label><select name="role" class="form-select">${this.optionsFor(ROLES,data.role).map(r=>`<option value="${this.escapeHTML(r)}" ${data.role===r?'selected':''}>${this.escapeHTML(r)}</option>`).join('')}</select></div>
-          <div class="md:col-span-2"><label class="form-label">负责地市</label><div class="flex flex-wrap gap-3">${this.optionsFor(CITIES,data.cities).map(c=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="cities" value="${this.escapeHTML(c)}" ${data.cities.includes(c)?'checked':''}> ${this.escapeHTML(c)}</label>`).join('')}</div></div>
-          <div class="md:col-span-2"><label class="form-label">负责学校</label><select name="schoolIds" multiple class="form-select" size="5">${this.data.schools.map(s=>`<option value="${this.escapeHTML(s.id)}" ${data.schoolIds.includes(s.id)?'selected':''}>${this.escapeHTML(s.name)}</option>`).join('')}</select></div>
+          <div class="md:col-span-2"><label class="form-label">负责地市</label><div class="flex flex-wrap gap-3">${this.optionsFor(CITIES,cities).map(c=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="cities" value="${this.escapeHTML(c)}" ${selectedCities.has(c)?'checked':''} onchange="app.updatePersonSchoolOptions()"> ${this.escapeHTML(c)}</label>`).join('')}</div></div>
+          <div class="md:col-span-2">
+            <label class="form-label">负责学校</label>
+            <p class="text-xs text-slate-500 mb-2">可直接勾选多所学校；切换地市只调整显示，已选学校会保留。</p>
+            <div class="max-h-60 overflow-y-auto rounded-lg border border-slate-200 p-3">
+              <div id="personSchoolOptions" class="grid grid-cols-1 md:grid-cols-2 gap-2">${schools.map(s=>`<label data-person-school-row data-school-city="${this.escapeHTML(s.city)}" ${selectedCities.has(s.city)?'':'hidden'} class="flex items-start gap-2 rounded-lg border border-slate-200 px-3 py-2 cursor-pointer ${selectedCities.has(s.city)?'':'hidden'}"><input type="checkbox" name="schoolIds" data-school-city="${this.escapeHTML(s.city)}" value="${this.escapeHTML(s.id)}" ${schoolIds.has(s.id)?'checked':''} onchange="app.updatePersonSchoolOptions()" class="mt-0.5 flex-shrink-0"><span class="min-w-0 text-sm"><span class="block">${this.escapeHTML(s.name)}</span><span class="block text-xs text-slate-500">${this.escapeHTML(s.city||'地市未录入')}</span></span></label>`).join('')}</div>
+              ${missingSchoolIds.map(id=>`<input type="checkbox" name="schoolIds" value="${this.escapeHTML(id)}" checked hidden class="hidden">`).join('')}
+              <p id="personSchoolEmpty" class="text-sm text-slate-500 py-2 ${visibleSchools.length?'hidden':''}" ${visibleSchools.length?'hidden':''}>${cities.length?'所选地市暂无学校。':'请先选择负责地市，再勾选负责学校。'}</p>
+            </div>
+            <p id="personSchoolSelectionInfo" class="text-xs text-slate-500 mt-2" aria-live="polite">${this.personSchoolSelectionText(schoolIds.size,hiddenSelectedCount)}</p>
+          </div>
           <div><label class="form-label">联系电话</label><input name="phone" class="form-input" value="${this.escapeHTML(data.phone)}"></div>
           <div><label class="form-label">状态</label><select name="status" class="form-select">${this.optionsFor(PERSON_STATUS,data.status).map(s=>`<option value="${this.escapeHTML(s)}" ${data.status===s?'selected':''}>${this.escapeHTML(s)}</option>`).join('')}</select></div>
         </form>
@@ -1016,9 +1032,28 @@ const app = {
       </div>
     `);
   },
+  personSchoolSelectionText(total,hidden){
+    return `已选 ${total} 所学校${hidden?`（其中 ${hidden} 所未在当前地市列表显示，已保留）`:''}。`;
+  },
+  updatePersonSchoolOptions(){
+    const form=document.getElementById('personForm');if(!form) return;
+    const cities=new Set(Array.from(form.querySelectorAll('input[name="cities"]:checked')).map(cb=>cb.value));
+    let visibleCount=0;
+    form.querySelectorAll('[data-person-school-row]').forEach(row=>{
+      const visible=cities.has(row.dataset.schoolCity);
+      row.hidden=!visible;row.classList.toggle('hidden',!visible);
+      if(visible) visibleCount++;
+    });
+    const empty=document.getElementById('personSchoolEmpty');
+    if(empty){empty.textContent=cities.size?'所选地市暂无学校。':'请先选择负责地市，再勾选负责学校。';empty.hidden=visibleCount>0;empty.classList.toggle('hidden',visibleCount>0);}
+    const selected=Array.from(form.querySelectorAll('input[name="schoolIds"]:checked'));
+    const hidden=selected.filter(cb=>!cities.has(cb.dataset.schoolCity)).length;
+    const info=document.getElementById('personSchoolSelectionInfo');
+    if(info) info.textContent=this.personSchoolSelectionText(selected.length,hidden);
+  },
   savePerson(id){
     const form=document.getElementById('personForm'); const fd=new FormData(form);
-    const p={id, name:fd.get('name'), role:fd.get('role'), cities:Array.from(form.querySelectorAll('input[name="cities"]:checked')).map(cb=>cb.value), schoolIds:Array.from(form.querySelector('select[name="schoolIds"]').selectedOptions).map(o=>o.value), phone:fd.get('phone'), status:fd.get('status')};
+    const p={id, name:fd.get('name'), role:fd.get('role'), cities:Array.from(form.querySelectorAll('input[name="cities"]:checked')).map(cb=>cb.value), schoolIds:Array.from(form.querySelectorAll('input[name="schoolIds"]:checked')).map(cb=>cb.value), phone:fd.get('phone'), status:fd.get('status')};
     const existing=this.data.persons.find(x=>x.id===id);
     if(existing) Object.assign(existing,p); else this.data.persons.push(p);
     store.set(this.data); this.toast('保存成功','success'); this.closeModal(); this.refreshPage();
