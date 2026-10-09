@@ -284,11 +284,12 @@ const app = {
     const stats = this.computeProvinceStats();
     const topCities = this.computeCityStats().sort((a,b)=>b.totalAmount-a.totalAmount).slice(0,3);
     container.innerHTML = `
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 mb-6">
         ${this.statCard('项目总数', this.data.deliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机数', stats.opportunityCount, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
-        ${this.statCard('在途商机总额', stats.opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
-        ${this.statCard('累计签约金额', stats.totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
+        ${this.statCard('在途商机总额', this.formatAmount(stats.opportunityAmount)+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
+        ${this.statCard('累计签约金额', this.formatAmount(stats.totalAmount)+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
+        ${this.confirmedRevenueCard(stats)}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 card p-4">
@@ -306,7 +307,7 @@ const app = {
                 <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer" onclick="app.go('city',${this.jsArg(c.name)})">
                   <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${i===0?'bg-amber-500':i===1?'bg-slate-400':'bg-orange-400'}">${i+1}</div>
                   <div class="flex-1"><div class="font-semibold">${this.escapeHTML(c.name)}</div><div class="text-xs text-slate-500">${c.schoolCount}所学校 · ${c.deliveryCount}个交付 · ${c.opportunityCount}个商机</div></div>
-                  <div class="font-bold text-slate-700">签约金额 ${c.totalAmount}万</div>
+                  <div class="font-bold text-slate-700">签约金额 ${this.formatAmount(c.totalAmount)}万</div>
                 </div>
               `).join('')}
             </div>
@@ -325,8 +326,13 @@ const app = {
     setTimeout(()=>{ this.renderMap(); this.renderOverviewChart(stats); this.renderProductChart(); this.renderStageChart(); }, 0);
   },
 
-  statCard(label,value,icon,borderClass,iconClass){
-    return `<div class="stat-card p-4 ${borderClass}"><div class="flex items-center justify-between"><div><div class="text-sm text-slate-500 mb-1">${this.escapeHTML(label)}</div><div class="text-2xl font-bold text-slate-800">${this.escapeHTML(value)}</div></div><div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl ${iconClass}"><i class="${icon}"></i></div></div></div>`;
+  statCard(label,value,icon,borderClass,iconClass,note=''){
+    return `<div class="stat-card p-4 ${borderClass}"><div class="flex items-center justify-between gap-2 mb-2"><div class="text-sm text-slate-500">${this.escapeHTML(label)}</div><div class="w-10 h-10 flex-shrink-0 rounded-xl flex items-center justify-center text-xl ${iconClass}"><i class="${icon}"></i></div></div><div class="text-2xl font-bold text-slate-800 whitespace-nowrap">${this.escapeHTML(value)}</div>${note?`<div class="text-xs text-slate-500 mt-2">${this.escapeHTML(note)}</div>`:''}</div>`;
+  },
+  confirmedRevenueCard(stats){
+    const value=stats.confirmedRevenueRecordedCount?this.formatAmount(stats.confirmedRevenue)+'万':'未录入';
+    const note=`已录入 ${stats.confirmedRevenueRecordedCount}/${stats.confirmedRevenueRecordedCount+stats.confirmedRevenueMissingCount} 项 · 未录入 ${stats.confirmedRevenueMissingCount} 项`;
+    return this.statCard('已确认收入金额',value,'ri-funds-line','border-cyan-500','bg-cyan-50 text-cyan-600',note);
   },
 
   renderMap() {
@@ -334,7 +340,7 @@ const app = {
     if (!mapElement) return;
     echarts.registerMap('zhejiang', zhejiangGeoJSON);
     const cityStats = this.computeCityStats();
-    const data = cityStats.map(c=>({name:c.name,value:c.schoolCount,delivery:c.deliveryCount,opportunity:c.opportunityCount,amount:c.totalAmount,opportunityAmount:c.opportunityAmount}));
+    const data = cityStats.map(c=>({name:c.name,value:c.schoolCount,delivery:c.deliveryCount,opportunity:c.opportunityCount,amount:c.totalAmount,opportunityAmount:c.opportunityAmount,confirmedRevenue:c.confirmedRevenue,confirmedRevenueRecordedCount:c.confirmedRevenueRecordedCount,confirmedRevenueMissingCount:c.confirmedRevenueMissingCount}));
     const chart = echarts.init(mapElement);
     this.charts.map = chart;
     chart.setOption({
@@ -345,8 +351,10 @@ const app = {
             <div>合作学校: <b>${p.data.value}</b></div>
             <div>在途交付: <b>${p.data.delivery}</b></div>
             <div>在途商机: <b>${p.data.opportunity}</b></div>
-            <div>在途商机: <b>${p.data.opportunityAmount}万</b></div>
-            <div>签约金额: <b>${p.data.amount}万</b></div>
+            <div>在途商机: <b>${this.formatAmount(p.data.opportunityAmount)}万</b></div>
+            <div>签约金额: <b>${this.formatAmount(p.data.amount)}万</b></div>
+            <div>已确认收入金额: <b>${p.data.confirmedRevenueRecordedCount?this.formatAmount(p.data.confirmedRevenue)+'万':'未录入'}</b></div>
+            <div class="text-slate-500">收入已录入 ${p.data.confirmedRevenueRecordedCount} 项 · 未录入 ${p.data.confirmedRevenueMissingCount} 项</div>
           </div>`
       },
       visualMap: { min: 0, max: Math.max(...data.map(d=>d.value))||10, left: 'left', bottom: '20', text: ['高','低'], inRange: { color: ['#dbeafe','#3b82f6','#1e40af'] }, calculable: true },
@@ -384,20 +392,22 @@ const app = {
     const schools = this.data.schools.filter(s=>s.city===city);
     const deliveries = this.data.deliveries.filter(d=>schools.some(s=>s.id===d.schoolId));
     const opportunities = this.data.opportunities.filter(o=>schools.some(s=>s.id===o.schoolId));
-    const totalAmount = schools.reduce((a,s)=>a+(+s.totalAmount||0),0);
+    const totalAmount = this.sumAmounts(schools.map(s=>s.totalAmount));
     const activeDeliveries = deliveries.filter(d=>this.isActiveDelivery(d));
     const activeOpportunities = opportunities.filter(o=>this.isActiveOpportunity(o));
-    const opportunityAmount = +(activeOpportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4);
+    const opportunityAmount = this.sumAmounts(activeOpportunities.map(o=>o.amount));
+    const revenueStats = this.computeConfirmedRevenue(deliveries);
     container.innerHTML = `
       <div class="mb-4 flex items-center gap-3">
         <button class="btn px-3 py-1.5 rounded-lg bg-slate-100 text-sm" onclick="app.go('home')"><i class="ri-arrow-left-line"></i> 返回全省地图</button>
         <h3 class="text-lg font-bold">${this.escapeHTML(city)}</h3>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4 mb-6">
         ${this.statCard('在途交付', activeDeliveries.length, 'ri-truck-line', 'border-emerald-500', 'bg-emerald-50 text-emerald-600')}
         ${this.statCard('在途商机', activeOpportunities.length, 'ri-lightbulb-line', 'border-amber-500', 'bg-amber-50 text-amber-600')}
-        ${this.statCard('在途商机总额', opportunityAmount+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
-        ${this.statCard('签约金额', totalAmount+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
+        ${this.statCard('在途商机总额', this.formatAmount(opportunityAmount)+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
+        ${this.statCard('签约金额', this.formatAmount(totalAmount)+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
+        ${this.confirmedRevenueCard(revenueStats)}
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div class="card p-4"><h3 class="font-bold mb-2">商机阶段分布</h3><div id="cityStageChart" style="height:240px"></div></div>
@@ -534,7 +544,7 @@ const app = {
           <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.openDeliveryModal()">+ 新增交付</button>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-sm table"><thead><tr><th>项目名称</th><th>学校</th><th>产品类型</th><th>数量</th><th>进度</th><th>负责人</th><th>计划交付</th><th>操作</th></tr></thead><tbody>
+          <table class="w-full text-sm table"><thead><tr><th>项目名称</th><th>学校</th><th>产品类型</th><th>数量</th><th>进度</th><th>已确认收入金额（万元）</th><th>负责人</th><th>计划交付</th><th>操作</th></tr></thead><tbody>
             ${this.getFilteredDeliveries().map(d=>{
               const school = this.data.schools.find(s=>s.id===d.schoolId);
               const totalQty = Object.values(d.quantities||{}).reduce((a,b)=>a+(Number(b)||0),0);
@@ -544,6 +554,7 @@ const app = {
                 <td>${this.escapeHTML(d.productTypes.join('/'))}</td>
                 <td>${totalQty}</td>
                 <td>${this.progressBadge(d.progress)}</td>
+                <td class="font-semibold whitespace-nowrap">${this.formatConfirmedRevenue(d.confirmedRevenue,false)}</td>
                 <td>${this.escapeHTML(this.personName(d.managerId))}</td>
                 <td>${this.escapeHTML(d.planDate)}</td>
                 <td>
@@ -707,6 +718,7 @@ const app = {
           <li>CSV 文件建议使用 UTF-8 with BOM 编码，以避免中文乱码。</li>
           <li>导入时会进行字段校验，必填字段为空或格式错误将跳过该条记录。</li>
           <li>学校名称不可重复，重复数据将覆盖已有记录。</li>
+          <li>交付项目的已确认收入金额单位为万元。空白表示未录入，0 表示已录入且金额为 0；省市收入汇总包含所有交付进度，仅累加已录入金额。</li>
         </ul>
       </div>
     `;
@@ -716,6 +728,39 @@ const app = {
 
   isActiveDelivery(d){ return !['已完成','已取消'].includes(String(d.progress||'').trim()); },
   isActiveOpportunity(o){ return !['已流失','已赢单','已签约','已成交'].includes(String(o.stage||'').trim()); },
+  amountParts(value){
+    const number=Number(value);if(!Number.isFinite(number)) return {units:0n,scale:0};
+    const [mantissa,exponent='0']=String(number).toLowerCase().split('e');
+    const [whole,fraction='']=mantissa.split('.');
+    let units=BigInt(whole+fraction),scale=fraction.length-Number(exponent);
+    if(scale<0){units*=10n**BigInt(-scale);scale=0;}
+    return {units,scale};
+  },
+  decimalAmount(units,scale){
+    const sign=units<0n?'-':'';const digits=String(units<0n?-units:units).padStart(scale+1,'0');
+    return sign+(scale?digits.slice(0,-scale)+'.'+digits.slice(-scale):digits);
+  },
+  sumAmounts(values){
+    // Sum the stored decimal values before converting back to a number; no fixed-decimal truncation.
+    const parts=values.map(value=>this.amountParts(value));
+    const scale=Math.max(0,...parts.map(part=>part.scale));
+    const units=parts.reduce((total,part)=>total+part.units*10n**BigInt(scale-part.scale),0n);
+    return Number(this.decimalAmount(units,scale));
+  },
+  formatAmount(value){
+    const {units,scale}=this.amountParts(value);
+    return this.decimalAmount(units,scale);
+  },
+  hasConfirmedRevenue(value){
+    return (typeof value==='number'||typeof value==='string')&&String(value).trim()!==''&&Number.isFinite(Number(value))&&Number(value)>=0;
+  },
+  formatConfirmedRevenue(value,withUnit=true){
+    return this.hasConfirmedRevenue(value)?this.formatAmount(value)+(withUnit?'万':''):'未录入';
+  },
+  computeConfirmedRevenue(deliveries){
+    const recorded=deliveries.filter(d=>this.hasConfirmedRevenue(d.confirmedRevenue));
+    return {confirmedRevenue:this.sumAmounts(recorded.map(d=>d.confirmedRevenue)),confirmedRevenueRecordedCount:recorded.length,confirmedRevenueMissingCount:deliveries.length-recorded.length};
+  },
   computeProductQuantities(deliveries){
     const counts = Object.create(null);
     deliveries.forEach(d => {
@@ -729,15 +774,16 @@ const app = {
   computeProvinceStats(){
     const deliveries = this.data.deliveries.filter(d=>this.isActiveDelivery(d));
     const opportunities = this.data.opportunities.filter(o=>this.isActiveOpportunity(o));
-    return {schoolCount:this.data.schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:+(this.data.schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4),opportunityAmount:+(opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4)};
+    return {schoolCount:this.data.schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:this.sumAmounts(this.data.schools.map(s=>s.totalAmount)),opportunityAmount:this.sumAmounts(opportunities.map(o=>o.amount)),...this.computeConfirmedRevenue(this.data.deliveries)};
   },
   computeCityStats(){
     return CITIES.map(city=>{
       const schools = this.data.schools.filter(s=>s.city===city);
       const ids = new Set(schools.map(s=>s.id));
-      const deliveries = this.data.deliveries.filter(d=>ids.has(d.schoolId)&&this.isActiveDelivery(d));
+      const allDeliveries = this.data.deliveries.filter(d=>ids.has(d.schoolId));
+      const deliveries = allDeliveries.filter(d=>this.isActiveDelivery(d));
       const opportunities = this.data.opportunities.filter(o=>ids.has(o.schoolId)&&this.isActiveOpportunity(o));
-      return {name:city,schoolCount:schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:+(schools.reduce((a,s)=>a+(+s.totalAmount||0),0)).toFixed(4),opportunityAmount:+(opportunities.reduce((a,o)=>a+(+o.amount||0),0)).toFixed(4)};
+      return {name:city,schoolCount:schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:this.sumAmounts(schools.map(s=>s.totalAmount)),opportunityAmount:this.sumAmounts(opportunities.map(o=>o.amount)),...this.computeConfirmedRevenue(allDeliveries)};
     });
   },
 
@@ -805,7 +851,7 @@ const app = {
 
   switchTab(el, tab){ el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); document.getElementById('tab-'+tab).classList.remove('hidden'); },
 
-  deliveryCard(d){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(d.name)}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openDeliveryModal(${this.jsArg(d.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteDelivery(${this.jsArg(d.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>产品: ${this.escapeHTML(d.productTypes.join('/'))}</span><span>进度: ${this.escapeHTML(d.progress)}</span><span>计划: ${this.escapeHTML(d.planDate)}</span></div></div>`; },
+  deliveryCard(d){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(d.name)}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openDeliveryModal(${this.jsArg(d.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteDelivery(${this.jsArg(d.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>产品: ${this.escapeHTML(d.productTypes.join('/'))}</span><span>进度: ${this.escapeHTML(d.progress)}</span><span>计划: ${this.escapeHTML(d.planDate)}</span><span>已确认收入金额: ${this.formatConfirmedRevenue(d.confirmedRevenue)}</span></div></div>`; },
   opportunityCard(o){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(o.name)}</div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.openOpportunityModal(${this.jsArg(o.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteOpportunity(${this.jsArg(o.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-3"><span>阶段: ${this.escapeHTML(o.stage)}</span><span>产品: ${this.escapeHTML(o.products.join('/'))}</span><span>预计: ${this.escapeHTML(o.amount)}万 / ${this.escapeHTML(o.signDate)}</span></div></div>`; },
   stakeholderCard(st){ return `<div class="p-3 rounded-lg border border-slate-200 bg-slate-50"><div class="flex items-center justify-between"><div class="font-medium">${this.escapeHTML(st.name)} <span class="text-xs text-slate-500">${this.escapeHTML(st.title)}</span></div><div class="flex gap-2"><button type="button" class="text-xs text-blue-600" onclick="app.editStakeholder(${this.jsArg(st.id)})">编辑</button><button type="button" class="text-xs text-rose-600" onclick="app.deleteStakeholder(${this.jsArg(st.id)})">删除</button></div></div><div class="text-xs text-slate-500 mt-1">类型: ${this.escapeHTML(st.type)} · 电话: ${this.escapeHTML(st.phone)}</div></div>`; },
 
@@ -831,7 +877,7 @@ const app = {
   openDeliveryModal(deliveryId){ const d=deliveryId?this.data.deliveries.find(x=>x.id===deliveryId):null; this.editDeliveryModal(d, d?d.schoolId:''); },
   openDeliveryModalForSchool(schoolId){ this.editDeliveryModal(null, schoolId); },
   editDeliveryModal(d, schoolId){
-    const isNew=!d; const data=d||{id:'D'+Date.now(), schoolId, name:'', productTypes:[], quantities:{}, deployLocation:'', progress:'未启动', managerId:'', planDate:'', actualDate:'', remark:''};
+    const isNew=!d; const data=d||{id:'D'+Date.now(), schoolId, name:'', productTypes:[], quantities:{}, deployLocation:'', progress:'未启动', managerId:'', planDate:'', actualDate:'', confirmedRevenue:null, remark:''};
     const productOptions = [...new Set([...PRODUCT_TYPES,...(data.productTypes||[]),...Object.keys(data.quantities||{})])];
     const owners = this.data.persons.filter(p=>p.role==='交付人员'||p.role==='服务人员');
     this.openModal(`
@@ -841,12 +887,13 @@ const app = {
           <div class="md:col-span-2"><label class="form-label">所属学校</label><select name="schoolId" class="form-select">${this.data.schools.map(s=>`<option value="${this.escapeHTML(s.id)}" ${data.schoolId===s.id?'selected':''}>${this.escapeHTML(s.name)}</option>`).join('')}</select></div>
           <div class="md:col-span-2"><label class="form-label">交付项目名称</label><input name="name" class="form-input" value="${this.escapeHTML(data.name)}" required></div>
           <div class="md:col-span-2"><label class="form-label">交付产品类型</label><div class="flex flex-wrap gap-3">${productOptions.map(t=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="productTypes" value="${this.escapeHTML(t)}" ${data.productTypes.includes(t)?'checked':''}> ${this.escapeHTML(t)}</label>`).join('')}</div></div>
-          <div class="md:col-span-2" id="qtyInputs"><label class="form-label">产品数量</label><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${productOptions.map(t=>`<div class="${data.productTypes.includes(t)?'':'hidden'}"><label class="text-xs text-slate-500">${this.escapeHTML(t)}</label><input type="number" class="form-input qty-input" data-type="${this.escapeHTML(t)}" value="${this.escapeHTML(data.quantities[t]||0)}"></div>`).join('')}</div></div>
+          <div class="md:col-span-2" id="qtyInputs"><label class="form-label">产品数量</label><div class="grid grid-cols-2 md:grid-cols-4 gap-2">${productOptions.map(t=>`<div class="${data.productTypes.includes(t)?'':'hidden'}"><label class="text-xs text-slate-500">${this.escapeHTML(t)}</label><input type="number" step="any" class="form-input qty-input" data-type="${this.escapeHTML(t)}" value="${this.escapeHTML(data.quantities[t]||0)}"></div>`).join('')}</div></div>
           <div class="md:col-span-2"><label class="form-label">部署位置</label><input name="deployLocation" class="form-input" value="${this.escapeHTML(data.deployLocation)}"></div>
           <div><label class="form-label">交付进度</label><select name="progress" class="form-select">${this.optionsFor(DELIVERY_PROGRESS,data.progress).map(p=>`<option value="${this.escapeHTML(p)}" ${data.progress===p?'selected':''}>${this.escapeHTML(p)}</option>`).join('')}</select></div>
           <div><label class="form-label">交付负责人</label><select name="managerId" class="form-select"><option value="">请选择</option>${data.managerId&&!owners.some(p=>p.id===data.managerId||p.name===data.managerId)?`<option value="${this.escapeHTML(data.managerId)}" selected>${this.escapeHTML(this.personName(data.managerId))}（原记录）</option>`:''}${owners.map(p=>`<option value="${this.escapeHTML(p.id)}" ${data.managerId===p.id||data.managerId===p.name?'selected':''}>${this.escapeHTML(p.name)}</option>`).join('')}</select></div>
           <div><label class="form-label">计划交付时间</label><input name="planDate" type="date" class="form-input" value="${this.escapeHTML(this.dateInputValue(data.planDate))}"></div>
           <div><label class="form-label">实际交付时间</label><input name="actualDate" type="date" class="form-input" value="${this.escapeHTML(this.dateInputValue(data.actualDate))}"></div>
+          <div class="md:col-span-2"><label class="form-label">已确认收入金额（万元）</label><input name="confirmedRevenue" type="number" min="0" step="any" class="form-input" value="${this.escapeHTML(data.confirmedRevenue)}" placeholder="未录入"><p class="text-xs text-slate-500 mt-1">留空表示未录入；填写 0 表示已确认收入为 0。</p></div>
           <div class="md:col-span-2"><label class="form-label">交付备注</label><textarea name="remark" class="form-textarea" rows="3">${this.escapeHTML(data.remark)}</textarea></div>
         </form>
       </div>
@@ -868,8 +915,12 @@ const app = {
 
   saveDelivery(id){
     const form=document.getElementById('deliveryForm'); const fd=new FormData(form);
+    if(!form.reportValidity()) return;
+    let confirmedRevenue;
+    try{confirmedRevenue=this.csvOptionalNumber(fd.get('confirmedRevenue'),'已确认收入金额');}
+    catch(error){this.toast(error.message,'error');return;}
     const quantities={}; form.querySelectorAll('.qty-input').forEach(inp=>{ if (inp.closest('div').classList.contains('hidden')) return; quantities[inp.dataset.type] = +inp.value||0; });
-    const d={id, schoolId: fd.get('schoolId'), name: fd.get('name'), productTypes: Array.from(form.querySelectorAll('input[name="productTypes"]:checked')).map(cb=>cb.value), quantities, deployLocation: fd.get('deployLocation'), progress: fd.get('progress'), managerId: fd.get('managerId'), planDate: fd.get('planDate'), actualDate: fd.get('actualDate'), remark: fd.get('remark')};
+    const d={id, schoolId: fd.get('schoolId'), name: fd.get('name'), productTypes: Array.from(form.querySelectorAll('input[name="productTypes"]:checked')).map(cb=>cb.value), quantities, deployLocation: fd.get('deployLocation'), progress: fd.get('progress'), managerId: fd.get('managerId'), planDate: fd.get('planDate'), actualDate: fd.get('actualDate'), confirmedRevenue, remark: fd.get('remark')};
     const existing=this.data.deliveries.find(x=>x.id===id);
     if(existing) Object.assign(existing,d); else this.data.deliveries.push(d);
     store.set(this.data); this.toast('保存成功','success'); this.closeModal(); this.refreshPage();
@@ -977,7 +1028,7 @@ const app = {
   csvHeaders(type, includeIds=true){
     const headers={
       schools:['学校名称','所在地区-省','所在地区-地市','所在地区-区县','办学类型','学校负责人','负责人职务','核心对接老师','对接人职务','联系电话','微信/邮箱','合作签约时间','项目总签约金额','备注'],
-      deliveries:['学校名称','交付项目名称','交付产品类型','产品数量JSON','部署位置','交付进度','交付负责人','计划交付时间','实际交付时间','交付备注'],
+      deliveries:['学校名称','交付项目名称','交付产品类型','产品数量JSON','部署位置','交付进度','交付负责人','计划交付时间','实际交付时间','交付备注','已确认收入金额'],
       opportunities:['学校名称','商机名称','商机阶段','意向产品','预计签约金额','预计签约时间','销售负责人','核心跟进节点','商机风险','商机备注'],
       persons:['人员姓名','人员角色','负责地市','负责学校','联系电话','人员状态'],
       stakeholders:['干系人姓名','所属学校','职务','联系电话','微信/邮箱','干系类型','跟进记录']
@@ -1021,6 +1072,12 @@ const app = {
     if(!Number.isFinite(number)) throw new Error(`${label}不是有效数字`);
     return number;
   },
+  csvOptionalNumber(value,label){
+    const raw=String(value??'').trim();if(raw==='') return null;
+    if(!/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(raw)) return this.csvNumber(raw,label);
+    const number=Number(raw);if(!Number.isFinite(number)||number<0) throw new Error(`${label}必须是非负数字`);
+    return number;
+  },
 
   csvRecordKey(type,record){
     const keys={schools:[record.name,record.city,record.district],deliveries:[record.schoolId,record.name],opportunities:[record.schoolId,record.name],persons:[record.name,record.phone],stakeholders:[record.schoolId,record.name]};
@@ -1045,7 +1102,7 @@ const app = {
         if(rows.length<2) throw new Error('文件为空或只有表头，请至少填写一条数据。');
         header=rows[0].values.map(v=>v.trim());
         if(new Set(header).size!==header.length) throw new Error('表头有重复列，请按模板检查。');
-        const missing=required.filter(name=>!header.includes(name));
+        const missing=required.filter(name=>name!=='已确认收入金额'&&!header.includes(name));
         if(missing.length) throw new Error('缺少表头：'+missing.join('、')+'。请确认导入类型并使用对应模板。');
       }catch(error){report(error.message,true);return;}
       const next=JSON.parse(JSON.stringify(this.data));let added=0,updated=0;const errors=[];
@@ -1073,6 +1130,7 @@ const app = {
           else if(type==='opportunities') rec={schoolId:school(get('学校名称'),get('学校ID')).id,name:get('商机名称'),stage:get('商机阶段')||'初步接触',products:split(get('意向产品')),amount:this.csvNumber(get('预计签约金额'),'预计签约金额'),signDate:get('预计签约时间'),salesId:person(get('销售负责人'),get('负责人ID')),milestones:get('核心跟进节点'),risks:get('商机风险'),remark:get('商机备注')};
           else if(type==='persons') rec={name:get('人员姓名'),role:get('人员角色')||'驻点销售',cities:split(get('负责地市')),schoolIds:get('负责学校ID')?split(get('负责学校ID')).map(id=>school('',id).id):split(get('负责学校')).map(name=>school(name).id),phone:get('联系电话'),status:get('人员状态')||'在职'};
           else if(type==='stakeholders') rec={name:get('干系人姓名'),schoolId:school(get('所属学校'),get('学校ID')).id,title:get('职务'),phone:get('联系电话'),wechatEmail:get('微信/邮箱'),type:get('干系类型')||'对接人',records:get('跟进记录')};
+          if(type==='deliveries'&&header.includes('已确认收入金额')) rec.confirmedRevenue=this.csvOptionalNumber(get('已确认收入金额'),'已确认收入金额');
           if(!rec.name) throw new Error('名称不能为空');
           const records=next[type];const explicitId=get('记录ID');
           if(explicitId&&!/^[A-Za-z0-9_-]{1,128}$/.test(explicitId)) throw new Error('记录ID仅允许字母、数字、下划线和连字符');
@@ -1083,6 +1141,7 @@ const app = {
           if(index>=0){records[index]={...records[index],...rec};updated++;}
           else{
             const prefix={schools:'S',deliveries:'D',opportunities:'O',persons:'P',stakeholders:'ST'}[type];
+            if(type==='deliveries'&&!Object.hasOwn(rec,'confirmedRevenue')) rec.confirmedRevenue=null;
             rec.id=explicitId||prefix+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2));
             records.push(rec);added++;
           }
@@ -1110,7 +1169,7 @@ const app = {
     const personName=id=>id?this.personName(id):'';
     const rows=this.data[type].map(record=>{
       if(type==='schools') return [record.name,'浙江省',record.city,record.district,(record.schoolType||[]).join('/'),record.principal,record.principalTitle,record.contact,record.contactTitle,record.phone,record.wechatEmail,record.signDate,record.totalAmount,record.remark,record.id];
-      if(type==='deliveries') return [schoolName(record.schoolId),record.name,(record.productTypes||[]).join('/'),JSON.stringify(record.quantities||{}),record.deployLocation,record.progress,personName(record.managerId),record.planDate,record.actualDate,record.remark,record.id,record.schoolId,record.managerId];
+      if(type==='deliveries') return [schoolName(record.schoolId),record.name,(record.productTypes||[]).join('/'),JSON.stringify(record.quantities||{}),record.deployLocation,record.progress,personName(record.managerId),record.planDate,record.actualDate,record.remark,record.confirmedRevenue,record.id,record.schoolId,record.managerId];
       if(type==='opportunities') return [schoolName(record.schoolId),record.name,record.stage,(record.products||[]).join('/'),record.amount,record.signDate,personName(record.salesId),record.milestones,record.risks,record.remark,record.id,record.schoolId,record.salesId];
       if(type==='persons') return [record.name,record.role,(record.cities||[]).join('/'),(record.schoolIds||[]).map(schoolName).join('/'),record.phone,record.status,record.id,(record.schoolIds||[]).join('/')];
       return [record.name,schoolName(record.schoolId),record.title,record.phone,record.wechatEmail,record.type,record.records,record.id,record.schoolId];

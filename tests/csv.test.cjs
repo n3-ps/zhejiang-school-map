@@ -31,7 +31,7 @@ const normal = value => JSON.parse(JSON.stringify(value));
 const sample = {
   schools: [{ id: 'S1', name: '学校,"甲"', city: '杭州市', district: '滨江区', schoolType: ['小学', '初中'], principal: '李,"校长"', principalTitle: '校长', contact: '王老师', contactTitle: '老师', phone: '13800000000', wechatEmail: 'a@b.cn', signDate: '2026-01-01', totalAmount: 0, remark: '首行\r\n次行,带"引号"' }],
   persons: [{ id: 'P1', name: '张,"老师"', role: '驻点销售', cities: ['杭州市'], schoolIds: ['S1'], phone: '13900000000', status: '在职' }],
-  deliveries: [{ id: 'D1', schoolId: 'S1', name: '交付,"一"', productTypes: ['智慧黑板', '录播'], quantities: { 智慧黑板: 0, 录播: 2 }, deployLocation: '楼1,楼2', progress: '交付中', managerId: 'P1', planDate: '2026-11-01', actualDate: '', remark: '第一行\n第二行' }],
+  deliveries: [{ id: 'D1', schoolId: 'S1', name: '交付,"一"', productTypes: ['智慧黑板', '录播'], quantities: { 智慧黑板: 0, 录播: 2 }, deployLocation: '楼1,楼2', progress: '交付中', managerId: 'P1', planDate: '2026-11-01', actualDate: '', confirmedRevenue: 0, remark: '第一行\n第二行' }],
   opportunities: [{ id: 'O1', schoolId: 'S1', name: '商机,"一"', stage: '方案交流', products: ['录播'], amount: 1234.5, signDate: '2026-12-01', salesId: 'P1', milestones: '推进,"节点"\n下一步', risks: '风险,"甲"\n乙', remark: '' }],
   stakeholders: [{ id: 'ST1', schoolId: 'S1', name: '周,"主任"', title: '主任', phone: '13700000000', wechatEmail: 'a,b@c.cn', type: '对接人', records: '记录,"双引号"\n第二行' }]
 };
