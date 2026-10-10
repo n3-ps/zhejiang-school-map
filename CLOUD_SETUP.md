@@ -1,6 +1,8 @@
 # Supabase 云端保存配置
 
-配置完成后，页面上的业务数据修改会先保存在当前浏览器，再自动提交到同一份云端工作区；其他成员登录后读取同一份数据。日常修改学校、商机、交付、人员和干系人不需要推送 GitHub。修改网页代码或云端配置仍需要发布一次网页。
+2026-10-10 已在现有项目完成渠道（`channels`）与售后网点（`servicePoints`）的数据库升级。升级前后旧记录数量一致，保存 RPC 已允许这两类数据；匿名执行权限仍关闭，现有成员权限保持不变。下文的 143 条记录是首次迁移时的历史快照。
+
+配置完成后，页面上的业务数据修改会先保存在当前浏览器，再自动提交到同一份云端工作区；其他成员登录后读取同一份数据。日常修改学校、商机、交付、人员、干系人、渠道和售后服务点不需要推送 GitHub。修改网页代码或云端配置仍需要发布一次网页。
 
 截至 2026-10-08，Supabase 项目已经创建并就绪，区域为新加坡，项目 URL 为 [https://pwjfxmqzdfauonrjefvn.supabase.co](https://pwjfxmqzdfauonrjefvn.supabase.co)。建库脚本已执行，默认工作区 `zhejiang-schools` 已迁移 **143 条业务记录：65 所学校、17 项交付、47 个商机、14 名人员、0 名干系人**。本地 `cloud-config.js` 已填写实际项目 URL 与公开 key。
 
@@ -22,6 +24,18 @@
 脚本会创建默认工作区 `zhejiang-schools`、成员表、业务记录表、读权限和保存函数。重复执行不会清空已有记录，也不会自动添加成员或上传业务数据。
 
 公开 key 用来识别应用，成员登录后的 JWT 用来识别用户，数据库成员权限决定能否读写数据。`secret` key、`service_role` key 和数据库密码都不能出现在浏览器配置里。参见 [Supabase API keys 官方说明](https://supabase.com/docs/guides/getting-started/api-keys)。
+
+### 已建库项目升级渠道和售后管理（2026-10-10）
+
+此次扩展新增 `channels`（渠道）和 `servicePoints`（售后服务点）两个集合。已有项目需要先升级数据库白名单，再发布配套网页；否则保存新增实体会被旧版约束或保存函数拒绝。这里提供的增量脚本不表示线上已执行升级。
+
+1. 在已连接的网页下载一份当前 JSON 备份。
+2. 在现有项目的 SQL Editor 中，由项目管理员执行整份 [supabase/migrations/20261010_partner_management.sql](supabase/migrations/20261010_partner_management.sql)。不要执行初次业务数据迁移或重新导入已有备份。
+3. 执行成功后发布配套网页，重新打开页面。新增一条测试渠道及售后服务点，等待保存成功，刷新确认，再由另一成员读取验证；完成后通过网页删除测试项，保留云端删除标记。
+
+增量脚本在单一事务里扩展 `school_map_records_collection_check`，并用 `CREATE OR REPLACE` 更新完整保存函数。脚本可重复执行，不重建记录表，不改已有记录、版本、成员或 RLS；现有保存函数的 owner 和执行权限保持原样。学校等旧集合仍可照常保存，新增集合也使用相同成员权限、版本冲突检查和整体回滚规则。
+
+新项目直接执行当前 `schema.sql` 即可；它会显式替换同名集合约束，因此重复执行也能兼容此次升级。已有项目建议使用上面的增量脚本，保留清晰的升级记录。
 
 ## 2. 创建成员账号并关闭公开注册
 
@@ -77,7 +91,7 @@ window.SCHOOL_MAP_CLOUD = {
 
 迁移前建议由团队指定一名负责人，汇总不同电脑的数据后只迁移一次。初始迁移单次最多 2000 条变更；超过此数量时需要单独规划迁移，不能拆分多个批次后声称整体原子保存。不要在 Supabase Table Editor 直接删除记录来清空数据，删除操作需要保留版本标记。
 
-首次迁移之外的 JSON/CSV 导入、删除和编辑也会形成自动保存变更。准备执行大范围修改或导入前，先导出当前备份。日志 `logs` 仅保留在本地，不与五类业务实体共享。
+首次迁移之外的 JSON/CSV 导入、删除和编辑也会形成自动保存变更。准备执行大范围修改或导入前，先导出当前备份。日志 `logs` 仅保留在本地，不与七类业务实体共享。
 
 ## 5. 保存、同步与冲突
 
@@ -118,7 +132,7 @@ window.SCHOOL_MAP_CLOUD = {
 - `read_school_map_snapshot(p_workspace_id text)`：只允许 `authenticated` 调用，显式确认当前用户仍是成员，单次查询返回该工作区全部记录（包含删除标记），结构为 `{ records: [...] }`。不受普通 REST 表查询的分页条数限制；成员被移除后返回拒绝访问，避免误认为空云端。
 - 每个 `p_changes` 项为 `{ collection, id, payload, deleted, base_version }`，新记录 `base_version` 为 `0`，已存在记录必须使用读取到的版本号。`payload.id` 必须与 `id` 完全一致。
 - 同一工作区的批次串行执行；任何冲突返回 SQLSTATE `40001`，HTTP 响应 `details` 提供 `{"conflicts":[{"collection":"schools","id":"S1","expected":1,"actual":2}]}`。
-- `schools`、`deliveries`、`opportunities`、`persons`、`stakeholders` 为固定白名单；单批次禁止重复记录，任一校验/写入失败都会回滚整个批次。
+- `schools`、`deliveries`、`opportunities`、`persons`、`stakeholders`、`channels`、`servicePoints` 为固定白名单；单批次禁止重复记录，任一校验/写入失败都会回滚整个批次。
 - 保存函数固定空 `search_path`，所有表均使用完整 schema 名称；权限设计参见 [Supabase RLS 文档](https://supabase.com/docs/guides/database/postgres/row-level-security) 和 [数据库函数权限文档](https://supabase.com/docs/guides/database/functions)。
 
 `schema.sql` 幂等启用 `supabase_realtime` publication（若项目已提供该 publication），方便后续扩展推送订阅；当前网页自动保存走 REST 保存 RPC，其他成员更新走定时 REST 快照 RPC，无需 Realtime WebSocket 才能保存。

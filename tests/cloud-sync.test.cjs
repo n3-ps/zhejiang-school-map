@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { RevisionQueue, CloudClient, emptyData, boot } = require('../cloud-sync.js');
+const fs = require('node:fs');
+const path = require('node:path');
+const { RevisionQueue, CloudClient, emptyData, boot, COLLECTIONS } = require('../cloud-sync.js');
 const row = (id, name, version = 1, deleted = false) => ({ collection: 'schools', id, payload: { id, name }, version, deleted });
 const change = (q, name) => { const data = q.materialize(); data.schools[0].name = name; q.observe(data); };
 
@@ -47,6 +49,85 @@ test('same content with differing object property order does not create a false 
   q.observe({ ...emptyData(), schools: [{ name: 'A', id: 's1' }] }); assert.equal(q.pending.size, 0);
 });
 
+for (const collection of ['channels', 'servicePoints']) {
+  test(`${collection} create, edit and delete use acknowledged versions and durable tombstones`, () => {
+    const entity = (name, version, deleted = false) => ({ collection, id: 'partner-1', payload: deleted ? { id: 'partner-1' } : { id: 'partner-1', name }, version, deleted });
+    const q = new RevisionQueue(); q.loadRemote([row('s1', 'Existing school')]);
+    const data = q.materialize(); data[collection] = [{ id: 'partner-1', name: 'Created' }]; q.observe(data);
+    assert.equal(q.batch().length, 1);
+    assert.deepEqual(q.batch()[0], { collection, id: 'partner-1', payload: { id: 'partner-1', name: 'Created' }, deleted: false, base_version: 0 });
+    q.acknowledge(q.batch(), [entity('Created', 1)]);
+    assert.equal(q.pending.size, 0);
+
+    const edit = q.materialize(); edit[collection][0].name = 'Edited'; q.observe(edit);
+    assert.equal(q.batch()[0].base_version, 1);
+    q.acknowledge(q.batch(), [entity('Edited', 2)]);
+    assert.equal(q.materialize()[collection][0].name, 'Edited');
+    const remove = q.materialize(); remove[collection] = []; q.observe(remove);
+    assert.deepEqual(q.batch()[0], { collection, id: 'partner-1', payload: { id: 'partner-1' }, deleted: true, base_version: 2 });
+
+    const restored = new RevisionQueue(JSON.parse(JSON.stringify(q.serialize())));
+    restored.loadRemote([row('s1', 'Existing school'), entity('Edited', 2)]);
+    assert.equal(restored.materialize()[collection].length, 0);
+    assert.equal(restored.batch()[0].base_version, 2);
+    restored.acknowledge(restored.batch(), [entity('', 3, true)]);
+    assert.equal(restored.pending.size, 0);
+    restored.loadRemote([row('s1', 'Existing school'), entity('', 3, true)]);
+    assert.equal(restored.materialize()[collection].length, 0);
+    assert.equal(restored.materialize().schools[0].name, 'Existing school');
+  });
+
+  test(`${collection} a pending edit survives reload and a newer remote record without losing conflict detection`, () => {
+    const q = new RevisionQueue();
+    const remote = { collection, id: 'partner-1', payload: { id: 'partner-1', name: 'Original' }, version: 4, deleted: false };
+    q.loadRemote([remote]);
+    const edit = q.materialize(); edit[collection][0].name = 'Local edit'; q.observe(edit);
+    const restored = new RevisionQueue(JSON.parse(JSON.stringify(q.serialize())));
+    const updated = { ...remote, payload: { ...remote.payload, name: 'Other member' }, version: 5 };
+    assert.equal(restored.conflicts([updated]).length, 1);
+    restored.loadRemote([updated]);
+    assert.equal(restored.materialize()[collection][0].name, 'Local edit');
+    assert.equal(restored.batch()[0].base_version, 4);
+  });
+}
+
+test('new partner records survive durable reload against a legacy five-collection cloud snapshot', () => {
+  const q = new RevisionQueue(); q.loadRemote([row('s1', 'Existing school')]);
+  const data = q.materialize();
+  data.channels = [{ id: 'shared-id', name: 'Channel' }];
+  data.servicePoints = [{ id: 'shared-id', name: 'Service point', channelId: 'shared-id' }];
+  q.observe(data);
+  const restored = new RevisionQueue(JSON.parse(JSON.stringify(q.serialize())));
+  const legacySnapshot = [row('s1', 'Another member edited the school', 2)];
+  restored.loadRemote(legacySnapshot);
+  assert.equal(restored.materialize().schools[0].name, 'Another member edited the school');
+  assert.deepEqual(restored.materialize().channels, data.channels);
+  assert.deepEqual(restored.materialize().servicePoints, data.servicePoints);
+  assert.deepEqual(restored.batch().map(change => [change.collection, change.base_version]), [['channels', 0], ['servicePoints', 0]]);
+  assert.equal(restored.conflicts(legacySnapshot).length, 0);
+  restored.reconcileAcknowledgement(legacySnapshot);
+  assert.equal(restored.pending.size, 2);
+});
+
+test('schema and online upgrade allow every synchronized collection and share the full version-checked RPC', () => {
+  const schema = fs.readFileSync(path.join(__dirname, '../supabase/schema.sql'), 'utf8');
+  const migration = fs.readFileSync(path.join(__dirname, '../supabase/migrations/20261010_partner_management.sql'), 'utf8');
+  const expected = ['schools', 'deliveries', 'opportunities', 'persons', 'stakeholders', 'channels', 'servicePoints'];
+  const quoted = text => [...text.matchAll(/'([^']+)'/g)].map(match => match[1]);
+  const rpc = text => text.match(/create or replace function public\.apply_school_map_changes\([\s\S]*?\n\$\$;/i)?.[0].replace(/\r\n/g, '\n');
+  assert.deepEqual(COLLECTIONS, expected);
+  for (const sql of [schema, migration]) {
+    const constraint = sql.match(/add constraint school_map_records_collection_check check \(collection in \(([\s\S]*?)\)\);/i);
+    const whitelist = rpc(sql)?.match(/\(v_change ->> 'collection'\) not in \(([\s\S]*?)\)/);
+    assert.ok(constraint); assert.ok(whitelist);
+    assert.deepEqual(quoted(constraint[1]), expected);
+    assert.deepEqual(quoted(whitelist[1]), expected);
+  }
+  assert.equal(rpc(migration), rpc(schema));
+  assert.match(migration, /begin;[\s\S]*drop constraint if exists school_map_records_collection_check;[\s\S]*commit;\s*$/i);
+  assert.doesNotMatch(migration, /\b(?:truncate|drop table|delete from public\.school_map_records)\b/i);
+});
+
 function mockStorage() { const map = new Map(); return { getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, v), removeItem: k => map.delete(k) }; }
 function fixture() {
   global.localStorage = mockStorage(); global.sessionStorage = mockStorage(); global.document = { getElementById: () => null };
@@ -56,6 +137,32 @@ function fixture() {
   c.session = { user: { id: 'member-1' } }; c.ready = true; c.queue.loadRemote([row('s1', 'A')]); change(c.queue, 'B');
   return c;
 }
+test('a legacy five-collection JSON backup is accepted and initializes empty partner arrays without uploading', async () => {
+  const legacy = { schools: [{ id: 'legacy-school', name: 'Legacy school' }], deliveries: [], opportunities: [], persons: [], stakeholders: [], logs: [] };
+  for (const backup of [legacy, { 'legacy-store': JSON.stringify(legacy) }]) {
+    const c = fixture(); c.store.key = 'legacy-store'; c.queue = new RevisionQueue();
+    let requested = false; c.request = async () => { requested = true; throw new Error('Choosing a backup must not upload it'); };
+    await c.chooseMigrationBackup({ text: async () => JSON.stringify(backup) });
+    assert.deepEqual(c.seed.schools, legacy.schools);
+    assert.deepEqual(c.seed.channels, []);
+    assert.deepEqual(c.seed.servicePoints, []);
+    assert.deepEqual(JSON.parse(localStorage.getItem(c.recoveryKey)), c.seed);
+    assert.equal(requested, false); assert.equal(c.queue.pending.size, 0);
+    assert.match(c.message, /已选择迁移备份，尚未上传/);
+  }
+});
+
+test('a backup with malformed partner collections is rejected without replacing the migration source', async () => {
+  const c = fixture(); const original = JSON.parse(JSON.stringify(c.seed));
+  for (const [collection, malformed] of [['channels', {}], ['channels', null], ['servicePoints', 'invalid'], ['servicePoints', 1]]) {
+    const backup = { ...emptyData(), [collection]: malformed };
+    await assert.rejects(c.chooseMigrationBackup({ text: async () => JSON.stringify(backup) }), /渠道或售后/);
+    assert.deepEqual(c.seed, original);
+    assert.equal(localStorage.getItem(c.recoveryKey), null);
+    assert.equal(c.queue.batch()[0].payload.name, 'B');
+  }
+});
+
 test('save success clears the queue only after the database acknowledges it', async () => {
   const c = fixture(); let calls = 0;
   c.request = async (path, options) => { calls++; const payload = JSON.parse(options.body); assert.equal(path, 'rpc/apply_school_map_changes'); assert.equal(payload.p_changes[0].base_version, 1); assert.equal(c.queue.pending.size, 1); return { records: [row('s1', 'B', 2)] }; };
@@ -145,7 +252,7 @@ test('reloading with an existing session shows connection progress and restores 
       async init() { this.data = JSON.parse(localStorage.getItem(store.key)); },
       refreshPage() {}, updateStorageInfo() {}, toast() {}, closeModal() {}
     };
-    for (const name of ['saveSchool', 'saveDelivery', 'saveOpportunity', 'saveStakeholder', 'savePerson', 'deleteSchool', 'deleteDelivery', 'deleteOpportunity', 'deleteStakeholder', 'deletePerson', 'importCSV']) app[name] = () => {};
+    for (const name of ['saveSchool', 'saveDelivery', 'saveOpportunity', 'saveStakeholder', 'savePerson', 'saveChannel', 'saveServicePoint', 'deleteSchool', 'deleteDelivery', 'deleteOpportunity', 'deleteStakeholder', 'deletePerson', 'deleteChannel', 'deleteServicePoint', 'importCSV']) app[name] = () => {};
 
     client = await boot(app, store);
     await new Promise(resolve => setImmediate(resolve));

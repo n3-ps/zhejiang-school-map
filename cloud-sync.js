@@ -1,7 +1,8 @@
 /* Browser REST client; no privileged database keys or third-party runtime required. */
 (function (root) {
   'use strict';
-  const COLLECTIONS = ['schools', 'deliveries', 'opportunities', 'persons', 'stakeholders'];
+  const LEGACY_COLLECTIONS = ['schools', 'deliveries', 'opportunities', 'persons', 'stakeholders'];
+  const COLLECTIONS = [...LEGACY_COLLECTIONS, 'channels', 'servicePoints'];
   const clone = value => JSON.parse(JSON.stringify(value));
   const emptyData = () => Object.fromEntries([...COLLECTIONS, 'logs'].map(c => [c, []]));
   const keyOf = (collection, id) => JSON.stringify([collection, id]);
@@ -179,7 +180,7 @@
         this.setStatus(navigator.onLine ? '保存中…' : '已暂存本机，联网后同步');
         void this.flush();
       };
-      for (const name of ['saveSchool', 'saveDelivery', 'saveOpportunity', 'saveStakeholder', 'savePerson', 'deleteSchool', 'deleteDelivery', 'deleteOpportunity', 'deleteStakeholder', 'deletePerson', 'importCSV']) {
+      for (const name of ['saveSchool', 'saveDelivery', 'saveOpportunity', 'saveStakeholder', 'savePerson', 'saveChannel', 'saveServicePoint', 'deleteSchool', 'deleteDelivery', 'deleteOpportunity', 'deleteStakeholder', 'deletePerson', 'deleteChannel', 'deleteServicePoint', 'importCSV']) {
         const original = this.app[name].bind(this.app);
         this.app[name] = (...args) => { if (!this.ready || this.conflicted) { this.app.toast(this.conflicted ? '请先处理云端编辑冲突' : '请先登录并连接云端', 'warning'); this.openPanel(); return; } return original(...args); };
       }
@@ -243,8 +244,9 @@
     async chooseMigrationBackup(file) {
       if (!file) return;
       let data = JSON.parse(await file.text());
-      if (data[this.store.key]) data = typeof data[this.store.key] === 'string' ? JSON.parse(data[this.store.key]) : data[this.store.key];
-      if (!COLLECTIONS.every(c => Array.isArray(data[c]))) throw new Error('备份文件缺少学校、交付、商机、人员或干系人数组');
+      if (data?.[this.store.key]) data = typeof data[this.store.key] === 'string' ? JSON.parse(data[this.store.key]) : data[this.store.key];
+      if (!data || typeof data !== 'object' || !LEGACY_COLLECTIONS.every(c => Array.isArray(data[c]))) throw new Error('备份文件缺少学校、交付、商机、人员或干系人数组');
+      if (['channels', 'servicePoints'].some(c => data[c] !== undefined && !Array.isArray(data[c]))) throw new Error('备份文件的渠道或售后网点格式不正确');
       flatten(data); // Reject duplicate/missing IDs before changing the migration source.
       this.seed = { ...emptyData(), ...data };
       localStorage.setItem(this.recoveryKey, JSON.stringify(this.seed));

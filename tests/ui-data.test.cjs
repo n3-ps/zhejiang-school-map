@@ -9,7 +9,7 @@ const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(m
 const source = scripts.find(script => script.includes('const app = {'));
 const key = 'zhejiang_private_school_battle_map';
 const plain = value => JSON.parse(JSON.stringify(value));
-const empty = () => ({schools:[],deliveries:[],opportunities:[],persons:[],stakeholders:[],logs:[]});
+const empty = () => ({schools:[],deliveries:[],opportunities:[],persons:[],stakeholders:[],channels:[],servicePoints:[],logs:[]});
 const school = (id='S_CUSTOM', name='真实学校') => ({id,name,city:'杭州市',district:'拱墅区',schoolType:['初中'],principal:'校长',principalTitle:'校长',contact:'老师',contactTitle:'主任',phone:'13800000000',wechatEmail:'',signDate:'2026-10-01',totalAmount:100,remark:'用户备注'});
 const delivery = (id='D_CUSTOM', progress='部署中') => ({id,schoolId:'S_CUSTOM',name:'真实交付',productTypes:['智慧课堂','批阅机'],quantities:{智慧课堂:2,批阅机:3},deployLocation:'教学楼',progress,managerId:'P_CUSTOM',planDate:'2026-10-20',actualDate:'',remark:''});
 const opportunity = (id='O_CUSTOM', stage='需求对接', amount=20) => ({id,schoolId:'S_CUSTOM',name:'真实商机',stage,products:['智慧课堂'],amount,signDate:'2026-10-20',salesId:'P_CUSTOM',milestones:'',risks:'',remark:''});

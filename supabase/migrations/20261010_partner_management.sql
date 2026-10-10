@@ -1,41 +1,8 @@
--- 浙江民办校作战地图：共享工作区与原子增量保存
--- 在 Supabase SQL Editor 中以项目管理员执行。可重复运行；不自动上传业务数据。
+-- 浙江民办校作战地图：渠道与售后服务点集合升级（2026-10-10）
+-- 已建库项目在 Supabase SQL Editor 中以项目管理员执行整份脚本。
+-- 事务可重复执行；仅扩展集合约束和保存 RPC，不修改记录、成员或版本。
 begin;
 
-create table if not exists public.school_map_workspaces (
-  id text primary key check (length(id) between 1 and 100),
-  name text not null,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.school_map_members (
-  workspace_id text not null references public.school_map_workspaces(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (workspace_id, user_id)
-);
-
-create index if not exists school_map_members_user_idx
-  on public.school_map_members (user_id, workspace_id);
-
-create table if not exists public.school_map_records (
-  workspace_id text not null references public.school_map_workspaces(id) on delete cascade,
-  collection text not null,
-  id text not null check (length(id) between 1 and 200),
-  payload jsonb not null check (
-    jsonb_typeof(payload) = 'object'
-    and jsonb_typeof(payload -> 'id') is not distinct from 'string'
-    and payload ->> 'id' = id
-  ),
-  version bigint not null default 1 check (version > 0),
-  deleted boolean not null default false,
-  updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users(id) on delete set null,
-  primary key (workspace_id, collection, id)
-);
-
--- 旧版内联 CHECK 的 PostgreSQL 默认名称就是下列名称。
--- CREATE TABLE IF NOT EXISTS 不会更新已有约束，因此新建和重跑都显式替换它。
 alter table public.school_map_records
   drop constraint if exists school_map_records_collection_check;
 alter table public.school_map_records
@@ -44,43 +11,8 @@ alter table public.school_map_records
     'channels', 'servicePoints'
   ));
 
-create index if not exists school_map_records_updated_idx
-  on public.school_map_records (workspace_id, updated_at);
-
-comment on table public.school_map_records is
-  '业务记录；仅成员可读，浏览器写入必须经过 apply_school_map_changes；deleted 保留删除版本，防止旧设备复活记录。';
-
-insert into public.school_map_workspaces (id, name)
-values ('zhejiang-schools', '浙江民办校业务沙盘')
-on conflict (id) do nothing;
-
--- 创建工作区不创建成员。登录账号必须由管理员另外加入成员表。
-alter table public.school_map_workspaces enable row level security;
-alter table public.school_map_members enable row level security;
-alter table public.school_map_records enable row level security;
-
-revoke all on table public.school_map_workspaces from public, anon, authenticated;
-revoke all on table public.school_map_members from public, anon, authenticated;
-revoke all on table public.school_map_records from public, anon, authenticated;
-grant select on table public.school_map_members to authenticated;
-grant select on table public.school_map_records to authenticated;
-
-drop policy if exists school_map_members_read_self on public.school_map_members;
-create policy school_map_members_read_self on public.school_map_members
-  for select to authenticated
-  using (user_id = (select auth.uid()));
-
-drop policy if exists school_map_records_read_member on public.school_map_records;
-create policy school_map_records_read_member on public.school_map_records
-  for select to authenticated
-  using (exists (
-    select 1 from public.school_map_members member
-    where member.workspace_id = school_map_records.workspace_id
-      and member.user_id = (select auth.uid())
-  ));
-
--- 没有 INSERT / UPDATE / DELETE 的 RLS policy，也没有客户端对应表权限。
--- 以下 RPC 使用创建者权限，但始终从 JWT 的 auth.uid() 判断成员身份。
+-- CREATE OR REPLACE 保留现有函数的 owner 与 EXECUTE 权限。
+-- 原成员检查、版本冲突、批次回滚和空 search_path 均保留。
 create or replace function public.apply_school_map_changes(
   p_workspace_id text,
   p_changes jsonb
@@ -230,63 +162,6 @@ begin
   end loop;
 
   return pg_catalog.jsonb_build_object('records', v_results);
-end;
-$$;
-
-revoke all on function public.apply_school_map_changes(text, jsonb)
-  from public, anon, authenticated;
-grant execute on function public.apply_school_map_changes(text, jsonb) to authenticated;
-
--- 单次读取完整快照，避免 REST 分页期间并发变更造成混合版本。
--- 显式检查成员资格，撤销成员后返回拒绝访问，而不是误认工作区为空。
-create or replace function public.read_school_map_snapshot(p_workspace_id text)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_user_id uuid := auth.uid();
-  v_records jsonb;
-begin
-  if v_user_id is null then
-    raise exception using errcode = '42501', message = '请先登录沙盘成员账号';
-  end if;
-
-  perform 1 from public.school_map_members
-    where workspace_id = p_workspace_id and user_id = v_user_id
-    for share;
-  if not found then
-    raise exception using errcode = '42501', message = '当前账号没有该工作区权限';
-  end if;
-
-  select coalesce(pg_catalog.jsonb_agg(
-    pg_catalog.to_jsonb(record) order by record.collection, record.id
-  ), '[]'::jsonb)
-    into v_records
-    from public.school_map_records record
-    where record.workspace_id = p_workspace_id;
-
-  return pg_catalog.jsonb_build_object('records', v_records);
-end;
-$$;
-
-revoke all on function public.read_school_map_snapshot(text)
-  from public, anon, authenticated;
-grant execute on function public.read_school_map_snapshot(text) to authenticated;
-
--- 开启 Realtime publication，供后续需要订阅推送时使用。
--- 当前网页使用定时拉取，publication 并非保存成功的前提。
-do $$
-begin
-  if exists (select 1 from pg_catalog.pg_publication where pubname = 'supabase_realtime')
-     and not exists (
-       select 1 from pg_catalog.pg_publication_tables
-       where pubname = 'supabase_realtime'
-         and schemaname = 'public' and tablename = 'school_map_records'
-     ) then
-    alter publication supabase_realtime add table public.school_map_records;
-  end if;
 end;
 $$;
 

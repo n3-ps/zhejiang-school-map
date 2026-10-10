@@ -83,6 +83,8 @@
       <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="schools"><i class="ri-school-line"></i> <span>学校档案</span></div>
       <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="deliveries"><i class="ri-truck-line"></i> <span>交付管理</span></div>
       <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="opportunities"><i class="ri-lightbulb-line"></i> <span>商机管理</span></div>
+      <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="channels"><i class="ri-shake-hands-line"></i> <span>渠道管理</span></div>
+      <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="servicePoints"><i class="ri-customer-service-2-line"></i> <span>售后网点管理</span></div>
       <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="persons"><i class="ri-user-settings-line"></i> <span>人员责任</span></div>
       <div class="nav-item px-5 py-3 flex items-center gap-3" data-page="data"><i class="ri-database-2-line"></i> <span>数据导入/导出</span></div>
     </nav>
@@ -102,7 +104,7 @@
         <div class="text-right max-w-56"><div id="cloudSaveStatus" role="status" aria-live="polite" class="text-xs text-slate-500">正在加载…</div><button id="cloudSyncButton" type="button" class="text-sm text-blue-600 hover:underline">云端同步</button></div>
         <div class="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5">
           <i class="ri-search-line text-slate-400"></i>
-          <input id="globalSearch" type="text" placeholder="搜索学校、人员、项目..." class="bg-transparent border-none outline-none text-sm w-56">
+          <input id="globalSearch" type="text" placeholder="搜索学校、人员、项目、渠道、网点..." class="bg-transparent border-none outline-none text-sm w-56">
         </div>
         <button class="btn bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2" onclick="app.openSchoolModal()"><i class="ri-add-line"></i> 新增学校</button>
         <button class="btn bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-sm" onclick="app.exportAllData()"><i class="ri-download-2-line"></i></button>
@@ -135,13 +137,16 @@ const OPPORTUNITY_STAGES = ['初步接触','需求对接','方案输出','招投
 const ROLES = ['驻点销售','交付人员','服务人员','区域负责人'];
 const PERSON_STATUS = ['在职','离职','调岗'];
 const STAKEHOLDER_TYPES = ['决策人','对接人','影响人','技术负责人'];
+const CHANNEL_STATUS = ['合作中','洽谈中','暂停合作'];
+const SERVICE_POINT_STATUS = ['服务中','待启用','暂停服务'];
+const SERVICE_SCOPES = ['安装施工','产品调试','售后维修','巡检维护','培训支持'];
 
 const store = {
   key: 'zhejiang_private_school_battle_map',
   init() { if (!localStorage.getItem(this.key)) localStorage.setItem(this.key, JSON.stringify(this.getDefaultData())); },
-  get() { try { return JSON.parse(localStorage.getItem(this.key)) || this.getDefaultData(); } catch(e){ return this.getDefaultData(); } },
+  get() { try { const data=JSON.parse(localStorage.getItem(this.key)); return data ? {...this.getDefaultData(),...data} : this.getDefaultData(); } catch(e){ return this.getDefaultData(); } },
   set(data) { localStorage.setItem(this.key, JSON.stringify(data)); },
-  getDefaultData() { return { schools: [], deliveries: [], opportunities: [], persons: [], stakeholders: [], logs: [] }; }
+  getDefaultData() { return { schools: [], deliveries: [], opportunities: [], channels: [], servicePoints: [], persons: [], stakeholders: [], logs: [] }; }
 };
 
 const app = {
@@ -226,6 +231,12 @@ const app = {
       const school = schoolName(o.schoolId);
       if (matches([o.name,school,this.personName(o.salesId),...(o.products||[])])) results.push({type:'opportunity',id:o.id,label:o.name,detail:`商机 · ${school} · ${o.stage}`});
     });
+    ['channels','servicePoints'].forEach(type => {
+      const config=this.partnerConfig(type);
+      (this.data[type]||[]).forEach(record => {
+        if(matches([record.name,record.contact,record.phone,record.wechatEmail,record.address,record.remark,this.personName(record.managerId),record[config.statusField],...(record.cities||[]),...(record.productTypes||[]),...(record.serviceScope||[])])) results.push({type:config.singular,id:record.id,label:record.name,detail:config.label+' · '+(record.cities||[]).join('/')+' · '+(record[config.statusField]||'')});
+      });
+    });
     return results;
   },
 
@@ -244,7 +255,7 @@ const app = {
     const results = this.getSearchResults(q);
     const heading = document.createElement('div');
     heading.className = 'px-3 py-2 text-xs text-slate-500 border-b border-slate-100';
-    heading.textContent = results.length ? `找到 ${results.length} 条结果${results.length>50?'，显示前 50 条':''}` : '未找到匹配的学校、人员或项目';
+    heading.textContent = results.length ? `找到 ${results.length} 条结果${results.length>50?'，显示前 50 条':''}` : '未找到匹配的学校、人员、项目、渠道或网点';
     panel.appendChild(heading);
     results.slice(0,50).forEach(result => {
       const button = document.createElement('button');
@@ -258,6 +269,8 @@ const app = {
         if (result.type==='person') this.openPersonModal(result.id);
         if (result.type==='delivery') this.openDeliveryModal(result.id);
         if (result.type==='opportunity') this.openOpportunityModal(result.id);
+        if (result.type==='channel') this.openChannelModal(result.id);
+        if (result.type==='servicePoint') this.openServicePointModal(result.id);
       });
       panel.appendChild(button);
     });
@@ -275,6 +288,8 @@ const app = {
       case 'schools': title.textContent='学校档案管理'; this.renderSchoolList(content); break;
       case 'deliveries': title.textContent='交付项目管理'; this.renderDeliveryList(content); break;
       case 'opportunities': title.textContent='商机管理'; this.renderOpportunityList(content); break;
+      case 'channels': title.textContent='渠道管理'; this.renderChannelList(content); break;
+      case 'servicePoints': title.textContent='售后网点管理'; this.renderServicePointList(content); break;
       case 'persons': title.textContent='人员责任管理'; this.renderPersonList(content); break;
       case 'data': title.textContent='数据导入/导出'; this.renderDataPage(content); break;
     }
@@ -290,6 +305,10 @@ const app = {
         ${this.statCard('在途商机总额', this.formatAmount(stats.opportunityAmount)+'万', 'ri-coins-line', 'border-purple-500', 'bg-purple-50 text-purple-600')}
         ${this.statCard('累计签约金额', this.formatAmount(stats.totalAmount)+'万', 'ri-money-cny-circle-line', 'border-rose-500', 'bg-rose-50 text-rose-600')}
         ${this.confirmedRevenueCard(stats)}
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <button class="card p-4 text-left hover:bg-blue-50" onclick="app.go('channels')"><div class="font-semibold text-slate-800"><i class="ri-shake-hands-line text-primary mr-2"></i>渠道资源 ${stats.channelCount} 家</div><div class="text-sm text-slate-500 mt-1">合作中 ${stats.activeChannelCount} 家 · 点击管理覆盖地市与产品</div></button>
+        <button class="card p-4 text-left hover:bg-blue-50" onclick="app.go('servicePoints')"><div class="font-semibold text-slate-800"><i class="ri-customer-service-2-line text-primary mr-2"></i>售后网点 ${stats.servicePointCount} 个</div><div class="text-sm text-slate-500 mt-1">服务中 ${stats.activeServicePointCount} 个 · 点击管理服务范围与覆盖地市</div></button>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 card p-4">
@@ -462,7 +481,7 @@ const app = {
   },
 
   captureListFilters(type){
-    const ids = {schools:['filterCity','filterType','filterKeyword'],deliveries:['filterDProgress','filterDKw'],opportunities:['filterOStage','filterOKw'],persons:['filterPRole','filterPStatus','filterPKw']}[type] || [];
+    const ids = {schools:['filterCity','filterType','filterKeyword'],deliveries:['filterDProgress','filterDKw'],opportunities:['filterOStage','filterOKw'],persons:['filterPRole','filterPStatus','filterPKw'],channels:['filterChannelCity','filterChannelStatus','filterChannelKw'],servicePoints:['filterServicePointCity','filterServicePointStatus','filterServicePointKw']}[type] || [];
     const state = this.listFilters[type] || (this.listFilters[type]={});
     ids.forEach(id => { const el=document.getElementById(id); if(el) state[id]=el.value; });
   },
@@ -635,6 +654,100 @@ const app = {
     return `<span class="tag ${colors[s]||'bg-slate-100'}">${this.escapeHTML(s)}</span>`;
   },
 
+  partnerConfig(type){
+    if(type==='channels') return {label:'渠道',singular:'channel',statusField:'cooperationStatus',statuses:CHANNEL_STATUS,filterPrefix:'Channel',formId:'channelForm',open:'openChannelModal',save:'saveChannel',remove:'deleteChannel',render:'renderChannelList'};
+    if(type==='servicePoints') return {label:'售后网点',singular:'servicePoint',statusField:'serviceStatus',statuses:SERVICE_POINT_STATUS,filterPrefix:'ServicePoint',formId:'servicePointForm',open:'openServicePointModal',save:'saveServicePoint',remove:'deleteServicePoint',render:'renderServicePointList'};
+    throw new Error('不支持的伙伴类型');
+  },
+  computePartnerStats(city){
+    const channels=(this.data.channels||[]).filter(record=>!city||(record.cities||[]).includes(city));
+    const points=(this.data.servicePoints||[]).filter(record=>!city||(record.cities||[]).includes(city));
+    return {channelCount:channels.length,activeChannelCount:channels.filter(record=>record.cooperationStatus==='合作中').length,servicePointCount:points.length,activeServicePointCount:points.filter(record=>record.serviceStatus==='服务中').length};
+  },
+  getFilteredPartners(type){
+    const config=this.partnerConfig(type),prefix=config.filterPrefix;
+    const city=this.filterValue(type,'filter'+prefix+'City'),status=this.filterValue(type,'filter'+prefix+'Status');
+    const keyword=this.filterValue(type,'filter'+prefix+'Kw').trim().toLowerCase();
+    return (this.data[type]||[]).filter(record=>{
+      if(city&&!(record.cities||[]).includes(city)) return false;
+      if(status&&record[config.statusField]!==status) return false;
+      return !keyword||[record.name,record.contact,record.phone,record.wechatEmail,record.address,record.remark,this.personName(record.managerId),...(record.cities||[]),...(record.productTypes||[]),...(record.serviceScope||[])].some(value=>String(value??'').toLowerCase().includes(keyword));
+    });
+  },
+  renderChannelList(container){this.renderPartnerList(container,'channels');},
+  renderServicePointList(container){this.renderPartnerList(container,'servicePoints');},
+  renderPartnerList(container,type){
+    this.captureListFilters(type);
+    const config=this.partnerConfig(type),prefix=config.filterPrefix,isService=type==='servicePoints';
+    const records=this.getFilteredPartners(type);
+    const html=`<div class="card p-4" data-list-type="${type}">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <select id="filter${prefix}City" class="form-input w-40 text-sm" onchange="app.${config.render}(document.getElementById('pageContent'))"><option value="">所有地市</option>${CITIES.map(city=>`<option value="${this.escapeHTML(city)}">${this.escapeHTML(city)}</option>`).join('')}</select>
+        <select id="filter${prefix}Status" class="form-input w-40 text-sm" onchange="app.${config.render}(document.getElementById('pageContent'))"><option value="">所有状态</option>${config.statuses.map(status=>`<option value="${this.escapeHTML(status)}">${this.escapeHTML(status)}</option>`).join('')}</select>
+        <input id="filter${prefix}Kw" type="search" placeholder="搜索名称/产品/联系人/电话" class="form-input w-64 text-sm" oninput="app.${config.render}(document.getElementById('pageContent'))">
+        <div class="flex-1"></div>
+        <button class="btn bg-primary text-white px-3 py-1.5 rounded-lg text-sm" onclick="app.${config.open}()">+ 新增${config.label}</button>
+        <button class="btn bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-sm" onclick="app.exportCSV('${type}')">导出 CSV</button>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-sm table"><thead><tr><th>${config.label}名称</th><th>覆盖地市</th><th>${isService?'服务':'合作'}产品</th><th>联系人/电话</th>${isService?'<th>服务范围</th>':''}<th>状态</th><th>负责人</th><th>操作</th></tr></thead><tbody>
+      ${records.map(record=>`<tr>
+        <td class="font-medium">${this.escapeHTML(record.name)}</td>
+        <td>${this.escapeHTML((record.cities||[]).join('/'))||'—'}</td>
+        <td>${this.escapeHTML((record.productTypes||[]).join('/'))||'—'}</td>
+        <td><div>${this.escapeHTML(record.contact)||'—'}</div><div class="text-xs text-slate-500">${this.escapeHTML(record.phone)||'—'}</div></td>
+        ${isService?`<td>${this.escapeHTML((record.serviceScope||[]).join('/'))||'—'}</td>`:''}
+        <td><span class="tag ${record[config.statusField]===config.statuses[0]?'bg-emerald-100 text-emerald-700':record[config.statusField]===config.statuses[1]?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-600'}">${this.escapeHTML(record[config.statusField])}</span></td>
+        <td>${this.escapeHTML(this.personName(record.managerId))}</td>
+        <td class="whitespace-nowrap"><button class="text-blue-600 hover:underline text-xs mr-2" onclick="app.${config.open}(${this.jsArg(record.id)})">编辑</button><button class="text-rose-600 hover:underline text-xs" onclick="app.${config.remove}(${this.jsArg(record.id)})">删除</button></td>
+      </tr>`).join('')||`<tr><td colspan="${isService?8:7}" class="text-center text-slate-400 py-10">${(this.data[type]||[]).length?'没有符合筛选条件的'+config.label:'暂无'+config.label+'，点击上方按钮新增'}</td></tr>`}
+      </tbody></table></div></div>`;
+    this.applyListMarkup(container,type,html);
+  },
+  openChannelModal(id){this.openPartnerModal('channels',id);},
+  openServicePointModal(id){this.openPartnerModal('servicePoints',id);},
+  openPartnerModal(type,id){
+    const config=this.partnerConfig(type),isService=type==='servicePoints';
+    const existing=(this.data[type]||[]).find(record=>record.id===id);
+    if(id&&!existing){this.toast('记录不存在，请刷新后重试','error');return;}
+    const record=existing||{id:(isService?'SP':'CH')+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2)),name:'',cities:[],productTypes:[],contact:'',phone:'',wechatEmail:'',address:'',[config.statusField]:config.statuses[0],managerId:'',remark:'',...(isService?{serviceScope:[]}: {})};
+    const checkboxes=(name,options,current=[])=>this.optionsFor(options,current).map(value=>`<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" name="${name}" value="${this.escapeHTML(value)}" ${current.includes(value)?'checked':''}> ${this.escapeHTML(value)}</label>`).join('');
+    const textField=(name,label)=>`<div><label class="form-label">${label}</label><input name="${name}" class="form-input" value="${this.escapeHTML(record[name])}"></div>`;
+    this.openModal(`<div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 rounded-t-2xl"><h3 class="font-bold text-lg">${existing?'编辑':'新增'}${config.label}</h3><button type="button" class="text-slate-400 hover:text-slate-600" onclick="app.closeModal()"><i class="ri-close-line text-2xl"></i></button></div>
+      <div class="p-6 overflow-auto"><form id="${config.formId}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="md:col-span-2"><label class="form-label">${config.label}名称 <span class="text-rose-500">*</span></label><input name="name" class="form-input" value="${this.escapeHTML(record.name)}" required></div>
+        <div class="md:col-span-2"><label class="form-label">覆盖地市（可多选）</label><div class="flex flex-wrap gap-3">${checkboxes('cities',CITIES,record.cities||[])}</div></div>
+        <div class="md:col-span-2"><label class="form-label">${isService?'服务':'合作'}产品（可多选）</label><div class="flex flex-wrap gap-3">${checkboxes('productTypes',PRODUCT_TYPES,record.productTypes||[])}</div></div>
+        ${textField('contact','联系人')}${textField('phone','联系电话')}${textField('wechatEmail','微信/邮箱')}${textField('address','地址')}
+        ${isService?`<div class="md:col-span-2"><label class="form-label">服务范围（可多选）</label><div class="flex flex-wrap gap-3">${checkboxes('serviceScope',SERVICE_SCOPES,record.serviceScope||[])}</div></div>`:''}
+        <div><label class="form-label">${isService?'服务':'合作'}状态</label><select name="${config.statusField}" class="form-select">${this.optionsFor(config.statuses,record[config.statusField]).map(status=>`<option value="${this.escapeHTML(status)}" ${status===record[config.statusField]?'selected':''}>${this.escapeHTML(status)}</option>`).join('')}</select></div>
+        <div><label class="form-label">负责人</label><select name="managerId" class="form-select"><option value="">未分配</option>${this.data.persons.map(person=>`<option value="${this.escapeHTML(person.id)}" ${person.id===record.managerId?'selected':''}>${this.escapeHTML(person.name)} · ${this.escapeHTML(person.role)}</option>`).join('')}${record.managerId&&!this.data.persons.some(person=>person.id===record.managerId)?`<option value="${this.escapeHTML(record.managerId)}" selected>未关联人员 · ${this.escapeHTML(record.managerId)}</option>`:''}</select></div>
+        <div class="md:col-span-2"><label class="form-label">备注</label><textarea name="remark" class="form-input" rows="3">${this.escapeHTML(record.remark)}</textarea></div>
+      </form></div>
+      <div class="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl"><button type="button" class="btn px-4 py-2 rounded-lg text-sm border border-slate-300" onclick="app.closeModal()">取消</button><button type="button" class="btn px-4 py-2 rounded-lg text-sm bg-primary text-white" onclick="app.${config.save}(${this.jsArg(record.id)})">保存</button></div>`);
+  },
+  saveChannel(id){return this.savePartner('channels',id);},
+  saveServicePoint(id){return this.savePartner('servicePoints',id);},
+  savePartner(type,id){
+    const config=this.partnerConfig(type),form=document.getElementById(config.formId);
+    if(!form||!form.reportValidity()) return false;
+    const fd=new FormData(form),name=String(fd.get('name')||'').trim();
+    if(!name){this.toast('名称不能为空','error');return false;}
+    const records=this.data[type]||(this.data[type]=[]),existing=records.find(record=>record.id===id);
+    const managerId=String(fd.get('managerId')||'');
+    if(managerId&&!this.data.persons.some(person=>person.id===managerId)&&managerId!==existing?.managerId){this.toast('请选择已有人员作为负责人','error');return false;}
+    const record={id,name,cities:fd.getAll('cities'),productTypes:fd.getAll('productTypes'),contact:fd.get('contact')||'',phone:fd.get('phone')||'',wechatEmail:fd.get('wechatEmail')||'',address:fd.get('address')||'',[config.statusField]:fd.get(config.statusField)||config.statuses[0],managerId,remark:fd.get('remark')||'',...(type==='servicePoints'?{serviceScope:fd.getAll('serviceScope')}: {})};
+    if(existing) Object.assign(existing,record);else records.push(record);
+    store.set(this.data);this.toast('保存成功','success');this.closeModal();this.refreshPage();return true;
+  },
+  deleteChannel(id){return this.deletePartner('channels',id);},
+  deleteServicePoint(id){return this.deletePartner('servicePoints',id);},
+  deletePartner(type,id){
+    const config=this.partnerConfig(type);
+    if(!confirm('确定删除该'+config.label+'？')) return false;
+    this.data[type]=(this.data[type]||[]).filter(record=>record.id!==id);
+    store.set(this.data);this.toast('删除成功','success');this.refreshPage();return true;
+  },
+
   renderPersonList(container){
     this.captureListFilters('persons');
     const html = `
@@ -684,9 +797,9 @@ const app = {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="card p-5">
           <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="ri-upload-cloud-2-line text-primary"></i> 数据导入</h3>
-          <p class="text-sm text-slate-500 mb-4">支持导入学校、交付、商机、人员、干系人 CSV 数据。请先下载模板，按模板格式填写后上传。</p>
+          <p class="text-sm text-slate-500 mb-4">支持导入学校、交付、商机、渠道、售后网点、人员、干系人 CSV 数据。请先下载模板，按模板格式填写后上传。</p>
           <div class="space-y-4">
-            <div><label class="form-label">选择导入类型</label><select id="importType" class="form-select"><option value="schools">学校档案</option><option value="deliveries">交付项目</option><option value="opportunities">在途商机</option><option value="persons">人员责任</option><option value="stakeholders">核心干系人</option></select></div>
+            <div><label class="form-label">选择导入类型</label><select id="importType" class="form-select"><option value="schools">学校档案</option><option value="deliveries">交付项目</option><option value="opportunities">在途商机</option><option value="channels">渠道管理</option><option value="servicePoints">售后网点管理</option><option value="persons">人员责任</option><option value="stakeholders">核心干系人</option></select></div>
             <div><label class="form-label">上传 CSV 文件</label><input type="file" id="importFile" accept=".csv" class="form-input py-2"></div>
             <div class="flex gap-3">
               <button class="btn bg-primary text-white px-4 py-2 rounded-lg text-sm" onclick="app.importCSV()">开始导入</button>
@@ -699,9 +812,9 @@ const app = {
           <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="ri-download-cloud-2-line text-emerald-500"></i> 数据导出</h3>
           <p class="text-sm text-slate-500 mb-4">导出全部业务数据为 CSV 文件，与导入模板格式保持一致，便于离线备份和 Excel 分析。</p>
           <div class="space-y-3">
-            ${['schools','deliveries','opportunities','persons','stakeholders'].map(k=>`
+            ${['schools','deliveries','opportunities','channels','servicePoints','persons','stakeholders'].map(k=>`
               <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                <div><div class="font-medium">${this.dataLabel(k)}</div><div class="text-xs text-slate-500">${this.data[k].length} 条记录</div></div>
+                <div><div class="font-medium">${this.dataLabel(k)}</div><div class="text-xs text-slate-500">${(this.data[k]||[]).length} 条记录</div></div>
                 <button class="btn bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm hover:bg-slate-50" onclick="app.exportCSV('${k}')">导出 CSV</button>
               </div>
             `).join('')}
@@ -724,7 +837,7 @@ const app = {
     `;
   },
 
-  dataLabel(k){ return {schools:'学校档案',deliveries:'交付项目',opportunities:'在途商机',persons:'人员责任',stakeholders:'核心干系人'}[k]; },
+  dataLabel(k){ return {schools:'学校档案',deliveries:'交付项目',opportunities:'在途商机',channels:'渠道管理',servicePoints:'售后网点管理',persons:'人员责任',stakeholders:'核心干系人'}[k]; },
 
   isActiveDelivery(d){ return !['已完成','已取消'].includes(String(d.progress||'').trim()); },
   isActiveOpportunity(o){ return !['已流失','已赢单','已签约','已成交'].includes(String(o.stage||'').trim()); },
@@ -774,7 +887,7 @@ const app = {
   computeProvinceStats(){
     const deliveries = this.data.deliveries.filter(d=>this.isActiveDelivery(d));
     const opportunities = this.data.opportunities.filter(o=>this.isActiveOpportunity(o));
-    return {schoolCount:this.data.schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:this.sumAmounts(this.data.schools.map(s=>s.totalAmount)),opportunityAmount:this.sumAmounts(opportunities.map(o=>o.amount)),...this.computeConfirmedRevenue(this.data.deliveries)};
+    return {schoolCount:this.data.schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:this.sumAmounts(this.data.schools.map(s=>s.totalAmount)),opportunityAmount:this.sumAmounts(opportunities.map(o=>o.amount)),...this.computeConfirmedRevenue(this.data.deliveries),...this.computePartnerStats()};
   },
   computeCityStats(){
     return CITIES.map(city=>{
@@ -783,7 +896,7 @@ const app = {
       const allDeliveries = this.data.deliveries.filter(d=>ids.has(d.schoolId));
       const deliveries = allDeliveries.filter(d=>this.isActiveDelivery(d));
       const opportunities = this.data.opportunities.filter(o=>ids.has(o.schoolId)&&this.isActiveOpportunity(o));
-      return {name:city,schoolCount:schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:this.sumAmounts(schools.map(s=>s.totalAmount)),opportunityAmount:this.sumAmounts(opportunities.map(o=>o.amount)),...this.computeConfirmedRevenue(allDeliveries)};
+      return {name:city,schoolCount:schools.length,deliveryCount:deliveries.length,opportunityCount:opportunities.length,totalAmount:this.sumAmounts(schools.map(s=>s.totalAmount)),opportunityAmount:this.sumAmounts(opportunities.map(o=>o.amount)),...this.computeConfirmedRevenue(allDeliveries),...this.computePartnerStats(city)};
     });
   },
 
@@ -1066,9 +1179,11 @@ const app = {
       deliveries:['学校名称','交付项目名称','交付产品类型','产品数量JSON','部署位置','交付进度','交付负责人','计划交付时间','实际交付时间','交付备注','已确认收入金额'],
       opportunities:['学校名称','商机名称','商机阶段','意向产品','预计签约金额','预计签约时间','销售负责人','核心跟进节点','商机风险','商机备注'],
       persons:['人员姓名','人员角色','负责地市','负责学校','联系电话','人员状态'],
+      channels:['渠道名称','覆盖地市','合作产品','联系人','联系电话','微信/邮箱','地址','合作状态','负责人','备注'],
+      servicePoints:['网点名称','覆盖地市','服务产品','联系人','联系电话','微信/邮箱','地址','服务范围','服务状态','负责人','备注'],
       stakeholders:['干系人姓名','所属学校','职务','联系电话','微信/邮箱','干系类型','跟进记录']
     };
-    const extra={schools:['记录ID'],deliveries:['记录ID','学校ID','负责人ID'],opportunities:['记录ID','学校ID','负责人ID'],persons:['记录ID','负责学校ID'],stakeholders:['记录ID','学校ID']};
+    const extra={schools:['记录ID'],deliveries:['记录ID','学校ID','负责人ID'],opportunities:['记录ID','学校ID','负责人ID'],persons:['记录ID','负责学校ID'],channels:['记录ID','负责人ID'],servicePoints:['记录ID','负责人ID'],stakeholders:['记录ID','学校ID']};
     if(!headers[type]) throw new Error('不支持的导入类型');
     return includeIds ? [...headers[type],...extra[type]] : headers[type];
   },
@@ -1115,7 +1230,7 @@ const app = {
   },
 
   csvRecordKey(type,record){
-    const keys={schools:[record.name,record.city,record.district],deliveries:[record.schoolId,record.name],opportunities:[record.schoolId,record.name],persons:[record.name,record.phone],stakeholders:[record.schoolId,record.name]};
+    const keys={schools:[record.name,record.city,record.district],deliveries:[record.schoolId,record.name],opportunities:[record.schoolId,record.name],persons:[record.name,record.phone],channels:[record.name,record.phone],servicePoints:[record.name,record.phone],stakeholders:[record.schoolId,record.name]};
     return JSON.stringify(keys[type].map(v=>String(v??'').trim()));
   },
 
@@ -1164,10 +1279,20 @@ const app = {
           else if(type==='deliveries') rec={schoolId:school(get('学校名称'),get('学校ID')).id,name:get('交付项目名称'),productTypes:split(get('交付产品类型')),quantities:this.safeJson(get('产品数量JSON')||'{}'),deployLocation:get('部署位置'),progress:get('交付进度')||'未启动',managerId:person(get('交付负责人'),get('负责人ID')),planDate:get('计划交付时间'),actualDate:get('实际交付时间'),remark:get('交付备注')};
           else if(type==='opportunities') rec={schoolId:school(get('学校名称'),get('学校ID')).id,name:get('商机名称'),stage:get('商机阶段')||'初步接触',products:split(get('意向产品')),amount:this.csvNumber(get('预计签约金额'),'预计签约金额'),signDate:get('预计签约时间'),salesId:person(get('销售负责人'),get('负责人ID')),milestones:get('核心跟进节点'),risks:get('商机风险'),remark:get('商机备注')};
           else if(type==='persons') rec={name:get('人员姓名'),role:get('人员角色')||'驻点销售',cities:split(get('负责地市')),schoolIds:get('负责学校ID')?split(get('负责学校ID')).map(id=>school('',id).id):split(get('负责学校')).map(name=>school(name).id),phone:get('联系电话'),status:get('人员状态')||'在职'};
+          else if(type==='channels'||type==='servicePoints') {
+            const isService=type==='servicePoints',statusField=isService?'serviceStatus':'cooperationStatus';
+            const statuses=isService?['服务中','待启用','暂停服务']:['合作中','洽谈中','暂停合作'];
+            rec={name:get(isService?'网点名称':'渠道名称'),cities:split(get('覆盖地市')),productTypes:split(get(isService?'服务产品':'合作产品')),contact:get('联系人'),phone:get('联系电话'),wechatEmail:get('微信/邮箱'),address:get('地址'),[statusField]:get(isService?'服务状态':'合作状态')||statuses[0],managerId:person(get('负责人'),get('负责人ID')),remark:get('备注')};
+            if(!statuses.includes(rec[statusField])) throw new Error('状态无效，请按模板填写'+statuses.join('/'));
+            if(isService) {
+              rec.serviceScope=split(get('服务范围'));
+              if(rec.serviceScope.some(scope=>!['安装施工','产品调试','售后维修','巡检维护','培训支持'].includes(scope))) throw new Error('服务范围无效，请填写安装施工/产品调试/售后维修/巡检维护/培训支持');
+            }
+          }
           else if(type==='stakeholders') rec={name:get('干系人姓名'),schoolId:school(get('所属学校'),get('学校ID')).id,title:get('职务'),phone:get('联系电话'),wechatEmail:get('微信/邮箱'),type:get('干系类型')||'对接人',records:get('跟进记录')};
           if(type==='deliveries'&&header.includes('已确认收入金额')) rec.confirmedRevenue=this.csvOptionalNumber(get('已确认收入金额'),'已确认收入金额');
           if(!rec.name) throw new Error('名称不能为空');
-          const records=next[type];const explicitId=get('记录ID');
+          const records=next[type]||(next[type]=[]);const explicitId=get('记录ID');
           if(explicitId&&!/^[A-Za-z0-9_-]{1,128}$/.test(explicitId)) throw new Error('记录ID仅允许字母、数字、下划线和连字符');
           const sameId=explicitId?records.findIndex(x=>x.id===explicitId):-1;
           const sameKey=records.map((x,index)=>({x,index})).filter(({x})=>this.csvRecordKey(type,x)===this.csvRecordKey(type,rec));
@@ -1175,7 +1300,7 @@ const app = {
           const index=sameId>=0?sameId:(sameKey[0]?.index??-1);
           if(index>=0){records[index]={...records[index],...rec};updated++;}
           else{
-            const prefix={schools:'S',deliveries:'D',opportunities:'O',persons:'P',stakeholders:'ST'}[type];
+            const prefix={schools:'S',deliveries:'D',opportunities:'O',persons:'P',channels:'CH',servicePoints:'SP',stakeholders:'ST'}[type];
             if(type==='deliveries'&&!Object.hasOwn(rec,'confirmedRevenue')) rec.confirmedRevenue=null;
             rec.id=explicitId||prefix+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2));
             records.push(rec);added++;
@@ -1202,11 +1327,13 @@ const app = {
   exportCSV(type){
     const schoolName=id=>this.data.schools.find(s=>s.id===id)?.name||'';
     const personName=id=>id?this.personName(id):'';
-    const rows=this.data[type].map(record=>{
+    const rows=(this.data[type]||[]).map(record=>{
       if(type==='schools') return [record.name,'浙江省',record.city,record.district,(record.schoolType||[]).join('/'),record.principal,record.principalTitle,record.contact,record.contactTitle,record.phone,record.wechatEmail,record.signDate,record.totalAmount,record.remark,record.id];
       if(type==='deliveries') return [schoolName(record.schoolId),record.name,(record.productTypes||[]).join('/'),JSON.stringify(record.quantities||{}),record.deployLocation,record.progress,personName(record.managerId),record.planDate,record.actualDate,record.remark,record.confirmedRevenue,record.id,record.schoolId,record.managerId];
       if(type==='opportunities') return [schoolName(record.schoolId),record.name,record.stage,(record.products||[]).join('/'),record.amount,record.signDate,personName(record.salesId),record.milestones,record.risks,record.remark,record.id,record.schoolId,record.salesId];
       if(type==='persons') return [record.name,record.role,(record.cities||[]).join('/'),(record.schoolIds||[]).map(schoolName).join('/'),record.phone,record.status,record.id,(record.schoolIds||[]).join('/')];
+      if(type==='channels') return [record.name,(record.cities||[]).join('/'),(record.productTypes||[]).join('/'),record.contact,record.phone,record.wechatEmail,record.address,record.cooperationStatus,personName(record.managerId),record.remark,record.id,record.managerId];
+      if(type==='servicePoints') return [record.name,(record.cities||[]).join('/'),(record.productTypes||[]).join('/'),record.contact,record.phone,record.wechatEmail,record.address,(record.serviceScope||[]).join('/'),record.serviceStatus,personName(record.managerId),record.remark,record.id,record.managerId];
       return [record.name,schoolName(record.schoolId),record.title,record.phone,record.wechatEmail,record.type,record.records,record.id,record.schoolId];
     });
     const csv=[this.csvHeaders(type),...rows].map(row=>row.map(value=>this.csvField(value)).join(',')).join('\r\n')+'\r\n';
@@ -1233,6 +1360,8 @@ const app = {
       case 'schools': this.renderSchoolList(content); break;
       case 'deliveries': this.renderDeliveryList(content); break;
       case 'opportunities': this.renderOpportunityList(content); break;
+      case 'channels': this.renderChannelList(content); break;
+      case 'servicePoints': this.renderServicePointList(content); break;
       case 'persons': this.renderPersonList(content); break;
       case 'data': this.renderDataPage(content); break;
     }
@@ -1242,7 +1371,7 @@ const app = {
   updateStorageInfo(){
     const raw = localStorage.getItem(store.key)||'{}';
     const size = (raw.length/1024).toFixed(1);
-    document.getElementById('storageInfo').innerHTML = `<div>记录: ${this.data.schools.length}校 / ${this.data.deliveries.length}交付 / ${this.data.opportunities.length}商机</div><div>存储: ${size} KB</div>`;
+    document.getElementById('storageInfo').innerHTML = `<div>记录: ${this.data.schools.length}校 / ${this.data.deliveries.length}交付 / ${this.data.opportunities.length}商机</div><div>伙伴: ${(this.data.channels||[]).length}渠道 / ${(this.data.servicePoints||[]).length}售后网点</div><div>存储: ${size} KB</div>`;
   },
 
   showContextMenu(x,y){
